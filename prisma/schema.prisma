@@ -33,6 +33,7 @@ model User {
   fullName     String
   avatarUrl    String?
   bio          String  @default("")
+  isAvailable  Boolean @default(true)
 
   // On-Demand Specifics
   role       UserRole   @default(CUSTOMER)
@@ -48,9 +49,8 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // Relationships (Examples)
-  // posts       Post[]     // If they post requests
-  // services    Service[]  // If they are a provider
+  reviews  Review[]  @relation("Reviewer")
+  services Service[] @relation("ServiceProvider")
 
   @@index([email, phoneNumber])
   @@index([role, status])
@@ -67,4 +67,45 @@ model Location {
 
   user   User?   @relation(fields: [userId], references: [id])
   userId String?
+}
+
+model Service {
+  id          String  @id @default(uuid())
+  title       String
+  description String  @db.Text
+  category    String
+  image       String?
+
+  // Features stored as a list of strings
+  features String[]
+
+  // Relationships
+  providerId String
+  provider   User     @relation("ServiceProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  reviews    Review[]
+
+  // Aggregates (Can be calculated, but often stored for performance)
+  rating      Float @default(0.0)
+  reviewCount Int   @default(0)
+
+  // Availability / Metadata
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+model Review {
+  id      String @id @default(uuid())
+  rating  Int
+  comment String @db.Text
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("Reviewer", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
 }

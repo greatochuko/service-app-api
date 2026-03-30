@@ -76,11 +76,14 @@ export async function login(
 export async function getSession(req: Request, res: TypedResponse<User>) {
   const user = await prisma.user.findUnique({
     where: { id: req.user?.id },
+    include: { services: { take: 1 } },
   });
 
   if (!user) throw new AppError("Unauthenticated", 401);
 
   const { passwordHash: _, ...userWithoutPassword } = user;
 
-  res.status(201).json({ success: true, data: userWithoutPassword as User });
+  res
+    .status(201)
+    .json({ success: true, data: userWithoutPassword as unknown as User });
 }
