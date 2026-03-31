@@ -1,10 +1,26 @@
 import { Router } from "express";
-import { saveAvailability } from "../controllers/user.controller";
+import {
+  saveAvailability,
+  updateAvailabilityStatus,
+  updateProfile,
+} from "../controllers/user.controller";
 import { validate } from "../middleware/validate";
-import { saveAvailabilitySchema } from "../validators/user.validator";
+import {
+  saveAvailabilitySchema,
+  updateAvailabilitySchema,
+  updateProfileSchema,
+} from "../validators/user.validator";
 
 const router = Router();
 
-router.put("/availability", validate(saveAvailabilitySchema), saveAvailability);
+router.patch("/", validate(updateProfileSchema), updateProfile);
+
+router.put("/schedule", validate(saveAvailabilitySchema), saveAvailability);
+
+router.patch(
+  "/availability",
+  validate(updateAvailabilitySchema),
+  updateAvailabilityStatus,
+);
 
 export default router;

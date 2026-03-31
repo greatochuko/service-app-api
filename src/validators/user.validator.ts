@@ -36,3 +36,18 @@ export const saveAvailabilitySchema = z.object({
 
 // 3. Extract the Type
 export type SaveAvailabilityBody = z.infer<typeof saveAvailabilitySchema>;
+
+export const updateProfileSchema = z.object({
+  fullName: z.string().min(3, "Full name is required"),
+  email: z.email("Invalid email address"),
+  avatarUrl: z.url("Invalid URL").optional(),
+  bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
+});
+
+export type UpdateProfileBody = z.infer<typeof updateProfileSchema>;
+
+export const updateAvailabilitySchema = z.object({
+  isAvailable: z.boolean(),
+});
+
+export type UpdateAvailabilityBody = z.infer<typeof updateAvailabilitySchema>;
