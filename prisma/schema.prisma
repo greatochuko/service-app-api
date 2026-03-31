@@ -34,6 +34,7 @@ model User {
   avatarUrl    String?
   bio          String  @default("")
   isAvailable  Boolean @default(true)
+  availability Json?
 
   // On-Demand Specifics
   role       UserRole   @default(CUSTOMER)
