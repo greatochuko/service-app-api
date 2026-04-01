@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodObject, ZodError } from "zod"; // Change this line
+import { ZodError, ZodObject } from "zod"; // Change this line
+import { logger } from "../utils/logger";
 
 export const validate =
   (schema: ZodObject) => (req: Request, res: Response, next: NextFunction) => {
@@ -7,8 +8,8 @@ export const validate =
       schema.parse(req.body);
       next();
     } catch (error) {
-      console.log(error);
       if (error instanceof ZodError) {
+        logger.error(error.issues.map((e) => e.message).join("\n"));
         return res.status(400).json({
           success: false,
           message: error.issues[0]?.message || "Validation Error",

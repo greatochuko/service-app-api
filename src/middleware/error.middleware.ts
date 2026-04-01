@@ -11,10 +11,10 @@ export const errorHandler = (
   __: NextFunction,
 ) => {
   // Log the stack trace for internal errors, or just the message for AppErrors
-  logger.error(err instanceof Error ? err.message : String(err));
 
   // 1. Handle our custom operational errors
   if (err instanceof AppError) {
+    logger.error(err.message);
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
@@ -23,6 +23,7 @@ export const errorHandler = (
 
   // 2. Handle Zod validation errors globally
   if (err instanceof ZodError) {
+    logger.error(err.errors.map((e) => e.message).join("\n"));
     return res.status(400).json({
       success: false,
       message: err.errors[0].message, // Returns the first validation message
@@ -32,12 +33,15 @@ export const errorHandler = (
 
   // 3. Handle generic Javascript errors
   if (err instanceof Error) {
+    logger.error(err.message);
     return res.status(500).json({
       success: false,
       message:
         env.NODE_ENV === "development" ? err.message : "Internal Server Error",
     });
   }
+
+  logger.error((err as Error).message);
 
   // 4. Fallback for anything else
   return res.status(500).json({

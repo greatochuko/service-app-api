@@ -5,6 +5,7 @@ import {
   SaveAvailabilityBody,
   UpdateAvailabilityBody,
   UpdateProfileBody,
+  UpdateRecoveryEmailBody,
 } from "../validators/user.validator";
 
 export async function saveAvailability(
@@ -55,6 +56,24 @@ export async function updateAvailabilityStatus(
     where: { id: userId },
     data: {
       isAvailable: req.body.isAvailable,
+    },
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
+}
+
+export async function updateRecoveryEmail(
+  req: TypedRequest<UpdateRecoveryEmailBody>,
+  res: TypedResponse<User>,
+) {
+  const userId = req.user?.id as string;
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email: req.body.email,
     },
   });
 

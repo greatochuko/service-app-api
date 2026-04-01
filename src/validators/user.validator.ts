@@ -50,3 +50,10 @@ export const updateAvailabilitySchema = z.object({
 });
 
 export type UpdateAvailabilityBody = z.infer<typeof updateAvailabilitySchema>;
+
+export const updateRecoveryEmailSchema = z.object({
+  email: z.email("Invalid email address"),
+  otp: z.string().length(4, "OTP must be 4 characters long"),
+});
+
+export type UpdateRecoveryEmailBody = z.infer<typeof updateRecoveryEmailSchema>;
