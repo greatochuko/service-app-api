@@ -34,3 +34,10 @@ export const loginSchema = z.object({
 });
 
 export type LoginBody = z.infer<typeof loginSchema>;
+
+export const changePasswordSchema = z.object({
+  oldPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: z.string().min(8, "New Password must be at least 8 characters"),
+});
+
+export type ChangePasswordBody = z.infer<typeof changePasswordSchema>;

@@ -26,15 +26,17 @@ enum UserStatus {
 }
 
 model User {
-  id           String  @id @default(uuid())
-  email        String? @unique
-  phoneNumber  String  @unique
-  passwordHash String
-  fullName     String
-  avatarUrl    String?
-  bio          String  @default("")
-  isAvailable  Boolean @default(true)
-  availability Json?
+  id                    String    @id @default(uuid())
+  email                 String?   @unique
+  phoneNumber           String    @unique
+  passwordHash          String
+  fullName              String
+  avatarUrl             String?
+  bio                   String    @default("")
+  isAvailable           Boolean   @default(true)
+  availability          Json?
+  passwordLastChangedAt DateTime?
+  twoFactorAuthEnabled  Boolean   @default(false)
 
   // On-Demand Specifics
   role       UserRole   @default(CUSTOMER)
@@ -50,8 +52,9 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  reviews  Review[]  @relation("Reviewer")
-  services Service[] @relation("ServiceProvider")
+  reviews      Review[]      @relation("Reviewer")
+  services     Service[]     @relation("ServiceProvider")
+  bankAccounts BankAccount[]
 
   @@index([email, phoneNumber])
   @@index([role, status])
@@ -109,4 +112,39 @@ model Review {
   author   User   @relation("Reviewer", fields: [authorId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+model BankAccount {
+  id            String   @id @default(uuid())
+  bankName      String
+  bankCode      String
+  accountNumber String
+  accountName   String
+  isPrimary     Boolean
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Bank {
+  id                      Int      @id
+  name                    String
+  slug                    String   @unique
+  code                    String   @unique
+  longcode                String?
+  gateway                 String?
+  payWithBank             Boolean  @default(false) @map("pay_with_bank")
+  supportsTransfer        Boolean  @default(true) @map("supports_transfer")
+  availableForDirectDebit Boolean  @default(false) @map("available_for_direct_debit")
+  active                  Boolean  @default(true)
+  country                 String   @default("Nigeria")
+  currency                String   @default("NGN")
+  type                    String   @default("nuban")
+  isDeleted               Boolean  @default(false) @map("is_deleted")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@map("banks") // Maps the model to a lowercase table name in the DB
 }

@@ -1,9 +1,18 @@
 import { Router } from "express";
-import { getSession, login, signup } from "../controllers/auth.controller";
+import {
+  changePassword,
+  getSession,
+  login,
+  signup,
+} from "../controllers/auth.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { authenticate } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
-import { loginSchema, signupSchema } from "../validators/auth.validator";
+import {
+  changePasswordSchema,
+  loginSchema,
+  signupSchema,
+} from "../validators/auth.validator";
 
 const router = Router();
 
@@ -14,5 +23,11 @@ router.post("/login", validate(loginSchema), asyncHandler(login));
 router.use(authenticate);
 
 router.get("/session", asyncHandler(getSession));
+
+router.post(
+  "/change-password",
+  validate(changePasswordSchema),
+  asyncHandler(changePassword),
+);
 
 export default router;

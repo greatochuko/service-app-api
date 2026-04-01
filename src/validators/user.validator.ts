@@ -39,7 +39,6 @@ export type SaveAvailabilityBody = z.infer<typeof saveAvailabilitySchema>;
 
 export const updateProfileSchema = z.object({
   fullName: z.string().min(3, "Full name is required"),
-  email: z.email("Invalid email address"),
   avatarUrl: z.url("Invalid URL").optional(),
   bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
 });

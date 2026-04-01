@@ -20,7 +20,9 @@ export async function saveAvailability(
     },
   });
 
-  res.json({ data: updatedUser, success: true });
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
 }
 
 export async function updateProfile(
@@ -33,13 +35,14 @@ export async function updateProfile(
     where: { id: userId },
     data: {
       fullName: req.body.fullName,
-      email: req.body.email,
       avatarUrl: req.body.avatarUrl,
       bio: req.body.bio,
     },
   });
 
-  res.json({ data: updatedUser, success: true });
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
 }
 
 export async function updateAvailabilityStatus(
@@ -55,5 +58,7 @@ export async function updateAvailabilityStatus(
     },
   });
 
-  res.json({ data: updatedUser, success: true });
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
 }

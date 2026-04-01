@@ -1,4 +1,8 @@
-import { LoginBody, SignupBody } from "../validators/auth.validator";
+import {
+  ChangePasswordBody,
+  LoginBody,
+  SignupBody,
+} from "../validators/auth.validator";
 import { prisma } from "../config/prisma";
 import { comparePassword, hashPassword } from "../utils/password";
 import { TypedRequest, TypedResponse } from "../types/express";
@@ -82,6 +86,42 @@ export async function getSession(req: Request, res: TypedResponse<User>) {
   if (!user) throw new AppError("Unauthenticated", 401);
 
   const { passwordHash: _, ...userWithoutPassword } = user;
+
+  res
+    .status(201)
+    .json({ success: true, data: userWithoutPassword as unknown as User });
+}
+
+export async function changePassword(
+  req: TypedRequest<ChangePasswordBody>,
+  res: TypedResponse<User>,
+) {
+  const { oldPassword, newPassword } = req.body;
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user?.id },
+  });
+
+  if (!user) throw new AppError("Unauthenticated", 401);
+
+  const passwordIsCorrect = await comparePassword(
+    oldPassword,
+    user.passwordHash,
+  );
+
+  if (!passwordIsCorrect) {
+    throw new AppError("The current password you entered is incorrect.", 403);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: req.user?.id },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      passwordLastChangedAt: new Date(),
+    },
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
 
   res
     .status(201)
