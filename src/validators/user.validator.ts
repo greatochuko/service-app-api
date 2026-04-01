@@ -57,3 +57,9 @@ export const updateRecoveryEmailSchema = z.object({
 });
 
 export type UpdateRecoveryEmailBody = z.infer<typeof updateRecoveryEmailSchema>;
+
+export const update2faSchema = z.object({
+  twoFactorAuthEnabled: z.boolean(),
+});
+
+export type Update2faBody = z.infer<typeof update2faSchema>;

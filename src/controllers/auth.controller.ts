@@ -6,14 +6,16 @@ import {
 import { prisma } from "../config/prisma";
 import { comparePassword, hashPassword } from "../utils/password";
 import { TypedRequest, TypedResponse } from "../types/express";
-import { User } from "../generated/prisma/client";
+import { Service, User } from "../generated/prisma/client";
 import { generateToken } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { Request } from "express";
 
+type AuthUserReturnType = User & { services: Service[] };
+
 export async function signup(
   req: TypedRequest<SignupBody>,
-  res: TypedResponse<{ token: string; user: User }>,
+  res: TypedResponse<{ token: string; user: AuthUserReturnType }>,
 ) {
   const { accountType, email, fullName, location, password, phoneNumber } =
     req.body;
@@ -38,6 +40,7 @@ export async function signup(
       locations: { create: location },
       role: accountType,
     },
+    include: { services: { take: 1 } },
   });
 
   const token = generateToken({ id: newUser.id, role: newUser.role });
@@ -46,18 +49,22 @@ export async function signup(
 
   res.status(201).json({
     success: true,
-    data: { token, user: userWithoutPassword as User },
+    data: {
+      token,
+      user: userWithoutPassword as AuthUserReturnType,
+    },
   });
 }
 
 export async function login(
   req: TypedRequest<LoginBody>,
-  res: TypedResponse<{ token: string; user: User }>,
+  res: TypedResponse<{ token: string; user: AuthUserReturnType }>,
 ) {
   const { password, phoneNumber } = req.body;
 
   const user = await prisma.user.findFirst({
     where: { phoneNumber: { endsWith: phoneNumber } },
+    include: { services: { take: 1 } },
   });
 
   if (!user) throw new AppError("Invalid Email and password combination", 401);
@@ -73,11 +80,14 @@ export async function login(
 
   res.status(201).json({
     success: true,
-    data: { token, user: userWithoutPassword as User },
+    data: { token, user: userWithoutPassword as AuthUserReturnType },
   });
 }
 
-export async function getSession(req: Request, res: TypedResponse<User>) {
+export async function getSession(
+  req: Request,
+  res: TypedResponse<AuthUserReturnType>,
+) {
   const user = await prisma.user.findUnique({
     where: { id: req.user?.id },
     include: { services: { take: 1 } },
@@ -89,7 +99,7 @@ export async function getSession(req: Request, res: TypedResponse<User>) {
 
   res
     .status(201)
-    .json({ success: true, data: userWithoutPassword as unknown as User });
+    .json({ success: true, data: userWithoutPassword as AuthUserReturnType });
 }
 
 export async function changePassword(

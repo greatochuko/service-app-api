@@ -21,10 +21,6 @@ export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
       !lastUpdated ||
       Date.now() - new Date(lastUpdated).getTime() > ONE_DAY_IN_MS;
 
-    console.log(
-      `Bank Cache: ${cachedBanks.length} entries, Last Updated: ${lastUpdated}, Is Stale: ${isCacheStale}`,
-    );
-
     if (cachedBanks.length > 0 && !isCacheStale) {
       return res.json({
         success: true,

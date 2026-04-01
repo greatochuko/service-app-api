@@ -3,10 +3,12 @@ import { TypedRequest, TypedResponse } from "../types/express";
 import { User } from "../generated/prisma/client";
 import {
   SaveAvailabilityBody,
+  Update2faBody,
   UpdateAvailabilityBody,
   UpdateProfileBody,
   UpdateRecoveryEmailBody,
 } from "../validators/user.validator";
+import { Request } from "express";
 
 export async function saveAvailability(
   req: TypedRequest<SaveAvailabilityBody>,
@@ -78,6 +80,36 @@ export async function updateRecoveryEmail(
   });
 
   const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
+}
+
+export async function update2fa(
+  req: TypedRequest<Update2faBody>,
+  res: TypedResponse<User>,
+) {
+  const userId = req.user?.id as string;
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      twoFactorAuthEnabled: req.body.twoFactorAuthEnabled,
+    },
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res.json({ data: userWithoutPassword as User, success: true });
+}
+
+export async function deleteAccount(req: Request, res: TypedResponse<User>) {
+  const userId = req.user?.id as string;
+
+  const deletedUser = await prisma.user.delete({
+    where: { id: userId },
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = deletedUser;
 
   res.json({ data: userWithoutPassword as User, success: true });
 }

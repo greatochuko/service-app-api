@@ -1,13 +1,16 @@
 import { Router } from "express";
 import {
   saveAvailability,
+  update2fa,
   updateAvailabilityStatus,
   updateProfile,
   updateRecoveryEmail,
+  deleteAccount,
 } from "../controllers/user.controller";
 import { validate } from "../middleware/validate";
 import {
   saveAvailabilitySchema,
+  update2faSchema,
   updateAvailabilitySchema,
   updateProfileSchema,
   updateRecoveryEmailSchema,
@@ -30,5 +33,9 @@ router.patch(
   validate(updateRecoveryEmailSchema),
   updateRecoveryEmail,
 );
+
+router.patch("/2fa", validate(update2faSchema), update2fa);
+
+router.delete("/", deleteAccount);
 
 export default router;
