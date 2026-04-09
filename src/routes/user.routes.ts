@@ -15,27 +15,32 @@ import {
   updateProfileSchema,
   updateRecoveryEmailSchema,
 } from "../validators/user.validator";
+import { asyncHandler } from "../middleware/asyncHandler";
 
 const router = Router();
 
-router.patch("/", validate(updateProfileSchema), updateProfile);
+router.patch("/", validate(updateProfileSchema), asyncHandler(updateProfile));
 
-router.put("/schedule", validate(saveAvailabilitySchema), saveAvailability);
+router.put(
+  "/schedule",
+  validate(saveAvailabilitySchema),
+  asyncHandler(saveAvailability),
+);
 
 router.patch(
   "/availability",
   validate(updateAvailabilitySchema),
-  updateAvailabilityStatus,
+  asyncHandler(updateAvailabilityStatus),
 );
 
 router.patch(
   "/recovery-email",
   validate(updateRecoveryEmailSchema),
-  updateRecoveryEmail,
+  asyncHandler(updateRecoveryEmail),
 );
 
-router.patch("/2fa", validate(update2faSchema), update2fa);
+router.patch("/2fa", validate(update2faSchema), asyncHandler(update2fa));
 
-router.delete("/", deleteAccount);
+router.delete("/", asyncHandler(deleteAccount));
 
 export default router;

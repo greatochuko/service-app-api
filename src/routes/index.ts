@@ -3,6 +3,8 @@ import authRoutes from "./auth.routes";
 import serviceRoutes from "./service.routes";
 import userRoutes from "./user.routes";
 import payoutRoutes from "./payout.routes";
+import notificationRoutes from "./notification.routes";
+import reviewRoutes from "./review.routes";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -16,5 +18,9 @@ router.use("/user", userRoutes);
 router.use("/services", serviceRoutes);
 
 router.use("/payout", payoutRoutes);
+
+router.use("/notifications", notificationRoutes);
+
+router.use("/reviews", reviewRoutes);
 
 export default router;

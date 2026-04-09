@@ -44,7 +44,6 @@ model User {
   rating     Float      @default(0.0)
   isVerified Boolean    @default(false)
 
-  // Location tracking (Prisma 7 handles JSON natively for GeoJSON)
   locations Location[] // Format: { lat: number, lng: number }
 
   // Metadata & Security
@@ -52,9 +51,12 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  reviews      Review[]      @relation("Reviewer")
-  services     Service[]     @relation("ServiceProvider")
-  bankAccounts BankAccount[]
+  writtenReviews  Review[] @relation("WrittenReviews")
+  receivedReviews Review[] @relation("ReceivedReviews")
+
+  services      Service[]      @relation("ServiceProvider")
+  bankAccounts  BankAccount[]
+  notifications Notification[]
 
   @@index([email, phoneNumber])
   @@index([role, status])
@@ -100,20 +102,6 @@ model Service {
   @@index([category])
 }
 
-model Review {
-  id      String @id @default(uuid())
-  rating  Int
-  comment String @db.Text
-
-  serviceId String
-  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   User   @relation("Reviewer", fields: [authorId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
 model BankAccount {
   id            String   @id @default(uuid())
   bankName      String
@@ -129,7 +117,7 @@ model BankAccount {
 }
 
 model Bank {
-  id                      Int      @id
+  id                      String   @id @default(uuid())
   name                    String
   slug                    String   @unique
   code                    String   @unique
@@ -147,4 +135,47 @@ model Bank {
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@map("banks") // Maps the model to a lowercase table name in the DB
+}
+
+// schema.prisma
+
+enum NotificationType {
+  PAYOUT
+  JOB
+  SYSTEM
+  MESSAGE
+  ALERT
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model Review {
+  id      String @id @default(cuid()) // Added default ID generator
+  rating  Int
+  comment String @db.Text
+
+  // The person writing the review
+  authorId String
+  author   User   @relation("WrittenReviews", fields: [authorId], references: [id])
+
+  // The person being reviewed (Provider)
+  providerId String
+  provider   User   @relation("ReceivedReviews", fields: [providerId], references: [id])
+
+  // The specific service being reviewed
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
