@@ -5,9 +5,12 @@ import { createServiceSchema } from "../validators/service.validator";
 import {
   createService,
   updateService,
+  getTopServices,
 } from "../controllers/service.controller";
 
 const router = Router();
+
+router.get("/", asyncHandler(getTopServices));
 
 router.post("/", validate(createServiceSchema), asyncHandler(createService));
 

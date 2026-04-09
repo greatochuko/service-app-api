@@ -1,8 +1,23 @@
+import { Request } from "express";
 import { prisma } from "../config/prisma";
 import { Service } from "../generated/prisma/client";
 import { TypedRequest, TypedResponse } from "../types/express";
 import { AppError } from "../utils/AppError";
 import { CreateServiceBody } from "../validators/service.validator";
+
+export async function getTopServices(
+  req: Request,
+  res: TypedResponse<Service[]>,
+) {
+  const topServices = await prisma.service.findMany({
+    include: {
+      provider: { select: { fullName: true, id: true, rating: true } },
+    },
+    take: 6,
+  });
+
+  res.json({ data: topServices, success: true });
+}
 
 export async function createService(
   req: TypedRequest<CreateServiceBody>,
