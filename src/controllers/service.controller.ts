@@ -1,9 +1,109 @@
 import { Request } from "express";
 import { prisma } from "../config/prisma";
-import { Service } from "../generated/prisma/client";
+import { Prisma, Service } from "../generated/prisma/client";
 import { TypedRequest, TypedResponse } from "../types/express";
 import { AppError } from "../utils/AppError";
 import { CreateServiceBody } from "../validators/service.validator";
+import { logger } from "../utils/logger";
+
+export async function searchServices(
+  req: Request,
+  res: TypedResponse<Service[]>,
+) {
+  try {
+    const { query, lat, lng, category, minRating, sortBy } = req.query as {
+      query: string;
+      lat?: string;
+      lng?: string;
+      category?: string;
+      minRating?: string;
+      sortBy?: "distance" | "rating" | "newest";
+    };
+
+    const userLat = lat ? parseFloat(lat) : null;
+    const userLng = lng ? parseFloat(lng) : null;
+    const ratingFilter = minRating ? parseFloat(minRating) : null;
+
+    // --- 1. Prisma Fallback ---
+    if (userLat === null || userLng === null) {
+      const services = await prisma.service.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { title: { contains: query, mode: "insensitive" } },
+                { description: { contains: query, mode: "insensitive" } },
+                { category: { contains: query, mode: "insensitive" } },
+                {
+                  provider: {
+                    fullName: { contains: query, mode: "insensitive" },
+                  },
+                },
+              ],
+            },
+            category
+              ? { category: { equals: category, mode: "insensitive" } }
+              : {},
+            ratingFilter ? { provider: { rating: { gte: ratingFilter } } } : {},
+          ],
+        },
+        orderBy:
+          sortBy === "rating"
+            ? { provider: { rating: "desc" } }
+            : sortBy === "newest"
+              ? { createdAt: "desc" }
+              : undefined,
+        include: {
+          provider: { select: { fullName: true, id: true, rating: true } },
+        },
+      });
+      return res.json({ data: services, success: true });
+    }
+
+    // --- 2. Raw SQL Path ---
+    const searchTerm = `%${query}%`;
+
+    // Create the order clause using Prisma.raw
+    let orderClause = Prisma.raw(`distance ASC`);
+    if (sortBy === "rating") orderClause = Prisma.raw(`u.rating DESC`);
+    if (sortBy === "newest") orderClause = Prisma.raw(`s."createdAt" DESC`);
+
+    const services = await prisma.$queryRaw<Service[]>`
+      SELECT 
+        s.*,
+        json_build_object(
+          'id', u.id,
+          'fullName', u."fullName",
+          'rating', u.rating
+        ) as provider,
+        (
+          6371 * acos(
+            least(1, max(-1, 
+              cos(radians(${userLat})) * cos(radians(l.latitude)) * cos(radians(l.longitude) - radians(${userLng})) + 
+              sin(radians(${userLat})) * sin(radians(l.latitude))
+            ))
+          )
+        ) AS distance
+      FROM "Service" s
+      JOIN "User" u ON s."providerId" = u.id
+      LEFT JOIN "Location" l ON l."userId" = u.id
+      WHERE 
+        (s.title ILIKE ${searchTerm} OR 
+         s.description ILIKE ${searchTerm} OR 
+         s.category ILIKE ${searchTerm} OR
+         u."fullName" ILIKE ${searchTerm}) 
+        AND (${category ? true : false} = false OR s.category = ${category})
+        AND (${ratingFilter !== null} = false OR u.rating >= ${ratingFilter})
+      ORDER BY ${orderClause}
+      LIMIT 50;
+    `;
+
+    return res.json({ data: services, success: true });
+  } catch (error) {
+    logger.error("Search Error: " + (error as Error).message);
+    return res.status(500).json({ success: false, message: "Search failed" });
+  }
+}
 
 export async function getTopServices(
   req: Request,
@@ -17,6 +117,33 @@ export async function getTopServices(
   });
 
   res.json({ data: topServices, success: true });
+}
+
+export async function getServiceById(
+  req: Request,
+  res: TypedResponse<Service>,
+) {
+  const serviceId = req.params.id as string;
+
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+    include: {
+      provider: {
+        select: { fullName: true, id: true, rating: true, avatarUrl: true },
+      },
+      reviews: {
+        include: {
+          author: {
+            select: { fullName: true, id: true, avatarUrl: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!service) throw new AppError("Invalid service ID: Service not found");
+
+  res.json({ data: service, success: true });
 }
 
 export async function createService(

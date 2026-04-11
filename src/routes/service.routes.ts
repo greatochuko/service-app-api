@@ -6,11 +6,17 @@ import {
   createService,
   updateService,
   getTopServices,
+  getServiceById,
+  searchServices,
 } from "../controllers/service.controller";
 
 const router = Router();
 
-router.get("/", asyncHandler(getTopServices));
+router.get("/", asyncHandler(searchServices));
+
+router.get("/top", asyncHandler(getTopServices));
+
+router.get("/:id", asyncHandler(getServiceById));
 
 router.post("/", validate(createServiceSchema), asyncHandler(createService));
 
