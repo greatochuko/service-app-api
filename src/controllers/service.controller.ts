@@ -242,6 +242,7 @@ export async function requestService(
     where: {
       id: serviceId,
     },
+    select: { id: true, providerId: true },
   });
 
   if (!service) {
@@ -261,6 +262,26 @@ export async function requestService(
       urgency,
     },
   });
+
+  prisma.notification
+    .create({
+      data: {
+        message: `You have a new request: ${title}`,
+        title: "New Job Request",
+        type: "JOB",
+        userId: service.providerId,
+      },
+    })
+    .then(() => {
+      logger.info(
+        `Notification sent to provider ${service.providerId} for job ${newJob.id}`,
+      );
+    })
+    .catch((err) => {
+      logger.error(
+        `Failed to send notification for job ${newJob.id}: ${err.message}`,
+      );
+    });
 
   res.status(201).json({
     success: true,
