@@ -6,6 +6,7 @@ export const createServiceSchema = z.object({
     .min(3, "Title must be at least 3 characters")
     .max(100, "Title must be less than 100 characters"),
   image: z.string().optional().nullable(),
+  gallery: z.array(z.string()),
   description: z
     .string()
     .min(10, "Description must be at least 10 characters")

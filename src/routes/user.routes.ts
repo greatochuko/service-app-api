@@ -6,6 +6,7 @@ import {
   updateProfile,
   updateRecoveryEmail,
   deleteAccount,
+  getUserById,
 } from "../controllers/user.controller";
 import { validate } from "../middleware/validate";
 import {
@@ -18,6 +19,8 @@ import {
 import { asyncHandler } from "../middleware/asyncHandler";
 
 const router = Router();
+
+router.get("/:id", asyncHandler(getUserById));
 
 router.patch("/", validate(updateProfileSchema), asyncHandler(updateProfile));
 

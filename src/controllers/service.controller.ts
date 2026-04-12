@@ -165,7 +165,7 @@ export async function createService(
     );
   }
 
-  const { title, category, description, features, image } = req.body;
+  const { title, category, description, features, image, gallery } = req.body;
 
   const newService = await prisma.service.create({
     data: {
@@ -174,6 +174,7 @@ export async function createService(
       description,
       features,
       image,
+      gallery,
       providerId: authUserId,
     },
   });
@@ -205,7 +206,7 @@ export async function updateService(
     throw new AppError("You are not authorized to update this service", 403);
   }
 
-  const { title, category, description, features, image } = req.body;
+  const { title, category, description, features, image, gallery } = req.body;
 
   const updatedService = await prisma.service.update({
     where: {
@@ -217,6 +218,7 @@ export async function updateService(
       description,
       features,
       image,
+      gallery,
     },
   });
 

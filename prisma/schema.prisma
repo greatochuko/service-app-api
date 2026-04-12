@@ -39,10 +39,11 @@ model User {
   twoFactorAuthEnabled  Boolean   @default(false)
 
   // On-Demand Specifics
-  role       UserRole   @default(CUSTOMER)
-  status     UserStatus @default(ACTIVE)
-  rating     Float      @default(0.0)
-  isVerified Boolean    @default(false)
+  role         UserRole   @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  rating       Float      @default(0.0)
+  totalReviews Int        @default(0)
+  isVerified   Boolean    @default(false)
 
   locations Location[] // Format: { lat: number, lng: number }
 
@@ -76,11 +77,12 @@ model Location {
 }
 
 model Service {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   title       String
-  description String  @db.Text
+  description String   @db.Text
   category    String
   image       String?
+  gallery     String[]
 
   // Features stored as a list of strings
   features String[]

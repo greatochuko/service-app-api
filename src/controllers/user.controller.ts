@@ -1,6 +1,6 @@
 import { prisma } from "../config/prisma";
 import { TypedRequest, TypedResponse } from "../types/express";
-import { User } from "../generated/prisma/client";
+import { Location, Service, User } from "../generated/prisma/client";
 import {
   SaveAvailabilityBody,
   Update2faBody,
@@ -9,6 +9,27 @@ import {
   UpdateRecoveryEmailBody,
 } from "../validators/user.validator";
 import { Request } from "express";
+import { AppError } from "../utils/AppError";
+
+type GetUserReturnType = User & { services: Service[]; locations: Location[] };
+
+export async function getUserById(
+  req: Request,
+  res: TypedResponse<GetUserReturnType>,
+) {
+  const userId = req.params.id as string;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { services: true, locations: true },
+  });
+
+  if (!user) throw new AppError("User not found", 404);
+
+  const { passwordHash: _, ...userWithoutPassword } = user;
+
+  res.json({ data: userWithoutPassword as GetUserReturnType, success: true });
+}
 
 export async function saveAvailability(
   req: TypedRequest<SaveAvailabilityBody>,
