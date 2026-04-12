@@ -1,9 +1,12 @@
 import { Request } from "express";
 import { prisma } from "../config/prisma";
-import { Prisma, Service } from "../generated/prisma/client";
+import { Job, Prisma, Service } from "../generated/prisma/client";
 import { TypedRequest, TypedResponse } from "../types/express";
 import { AppError } from "../utils/AppError";
-import { CreateServiceBody } from "../validators/service.validator";
+import {
+  CreateServiceBody,
+  RequestServiceBody,
+} from "../validators/service.validator";
 import { logger } from "../utils/logger";
 
 export async function searchServices(
@@ -225,5 +228,42 @@ export async function updateService(
   res.status(201).json({
     success: true,
     data: updatedService,
+  });
+}
+
+export async function requestService(
+  req: TypedRequest<RequestServiceBody>,
+  res: TypedResponse<Job>,
+) {
+  const authUserId = req.user?.id as string;
+  const serviceId = req.params.id as string;
+
+  const service = await prisma.service.findUnique({
+    where: {
+      id: serviceId,
+    },
+  });
+
+  if (!service) {
+    throw new AppError("Service not found", 404);
+  }
+
+  const { description, title, images, urgency, budget } = req.body;
+
+  const newJob = await prisma.job.create({
+    data: {
+      description,
+      serviceId,
+      title,
+      images,
+      customerId: authUserId,
+      budget,
+      urgency,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    data: newJob,
   });
 }

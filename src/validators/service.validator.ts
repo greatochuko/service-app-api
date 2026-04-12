@@ -1,4 +1,5 @@
 import z from "zod";
+import { Urgency } from "../generated/prisma/enums";
 
 export const createServiceSchema = z.object({
   title: z
@@ -24,3 +25,13 @@ export const createServiceSchema = z.object({
 });
 
 export type CreateServiceBody = z.infer<typeof createServiceSchema>;
+
+export const requestServiceSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  urgency: z.enum(Urgency),
+  images: z.array(z.string()),
+  budget: z.number().optional(),
+});
+
+export type RequestServiceBody = z.infer<typeof requestServiceSchema>;
