@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsup",
     "start": "node dist/server.js",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
@@ -39,6 +39,7 @@
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "prisma": "^7.5.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.57.2"
