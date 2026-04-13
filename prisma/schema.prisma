@@ -199,11 +199,12 @@ enum Urgency {
 }
 
 enum JobStatus {
-  INQUIRY
-  BOOKED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
+  INQUIRY // Initial request/chat
+  BOOKED // Accepted by provider, scheduled
+  IN_PROGRESS // Provider has clicked "Start Job"
+  COMPLETED // Work is finished, invoice sent
+  PAID // Payment confirmed (Final State)
+  CANCELLED // Terminated by either party
 }
 
 model Job {

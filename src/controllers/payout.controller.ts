@@ -6,6 +6,7 @@ import { Bank, BankAccount } from "../generated/prisma/client";
 import { SaveBankAccountBody } from "../validators/payout.validator";
 import { prisma } from "../config/prisma";
 import { BankType } from "../types/payout.type";
+import { BankCreateManyInput } from "../generated/prisma/models";
 
 export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
   try {
@@ -38,33 +39,35 @@ export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
     const paystackData = await paystackRes.json();
     const externalBanks: BankType[] = paystackData.data;
 
-    const bankCreationData = externalBanks.map((bank) => ({
-      id: bank.id,
-      name: bank.name,
-      slug: bank.slug,
-      code: bank.code,
-      longcode: bank.longcode,
-      gateway: bank.gateway,
-      payWithBank: bank.pay_with_bank,
-      supportsTransfer: bank.supports_transfer,
-      availableForDirectDebit: bank.available_for_direct_debit,
-      active: bank.active,
-      country: bank.country,
-      currency: bank.currency,
-      type: bank.type,
-      isDeleted: bank.is_deleted,
-    })) as Bank[];
+    const bankCreationData: BankCreateManyInput[] = externalBanks.map(
+      (bank) => ({
+        id: bank.id.toString(),
+        name: bank.name,
+        slug: bank.slug,
+        code: bank.code,
+        longcode: bank.longcode,
+        gateway: bank.gateway,
+        payWithBank: bank.pay_with_bank,
+        supportsTransfer: bank.supports_transfer,
+        availableForDirectDebit: bank.available_for_direct_debit,
+        active: bank.active,
+        country: bank.country,
+        currency: bank.currency,
+        type: bank.type,
+        isDeleted: bank.is_deleted,
+      }),
+    );
 
-    await prisma.$transaction([
+    const [_, newBanks] = await prisma.$transaction([
       prisma.bank.deleteMany({}),
 
-      prisma.bank.createMany({
+      prisma.bank.createManyAndReturn({
         data: bankCreationData,
         skipDuplicates: true,
       }),
     ]);
 
-    res.json({ success: true, data: bankCreationData });
+    res.json({ success: true, data: newBanks });
   } catch (error) {
     console.error("Bank Fetch Error:", error);
 
