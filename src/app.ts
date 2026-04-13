@@ -6,8 +6,18 @@ import routes from "./routes";
 import { errorHandler } from "./middleware/error.middleware";
 import rateLimit from "express-rate-limit";
 import "./config/prisma";
+import { createServer } from "node:http";
+import { Server } from "socket.io";
 
 const app = express();
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: [], // Match your Express CORS settings
+    methods: ["GET", "POST"],
+  },
+});
 
 // Security
 app.use(helmet());
@@ -40,10 +50,16 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Routes
 app.use("/api", routes);
 
 // Error handler (must be last)
 app.use(errorHandler);
 
+export { app, httpServer, io };
 export default app;

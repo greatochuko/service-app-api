@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import { AuthTokenPayload } from "../utils/jwt";
+import { Server } from "socket.io";
 
 declare global {
   namespace Express {
     interface Request {
       user?: AuthTokenPayload;
+      io: Server;
     }
   }
 }

@@ -1,4 +1,4 @@
-import app from "./app";
+import { app, httpServer, io } from "./app";
 import { env } from "./config/env";
 import { logger } from "./utils/logger";
 
@@ -32,6 +32,19 @@ app.get("/health", (_, res): void => {
   });
 });
 
-app.listen(env.PORT, () => {
+io.on("connection", (socket) => {
+  logger.info(`User connected: ${socket.id}`);
+
+  socket.on("join_room", (roomId: string) => {
+    socket.join(roomId);
+  });
+
+  socket.on("disconnect", () => {
+    logger.info("User disconnected");
+  });
+});
+
+// 3. CRITICAL: Change app.listen to httpServer.listen
+httpServer.listen(env.PORT, () => {
   logger.info(`Server running on port ${env.PORT}`);
 });

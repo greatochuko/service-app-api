@@ -60,6 +60,13 @@ model User {
   notifications Notification[]
   jobsSent      Job[]          @relation("CustomerJobs")
 
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  customerChats Chat[]  @relation("CustomerChats")
+  providerChats Chat[]  @relation("ProviderChats")
+  quotes        Quote[]
+
   @@index([email, phoneNumber])
   @@index([role, status])
 }
@@ -102,6 +109,7 @@ model Service {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   jobs      Job[]
+  chats     Chat[]
 
   @@index([category])
 }
@@ -217,7 +225,92 @@ model Job {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  chat      Chat?
 
   @@index([customerId])
   @@index([serviceId])
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Quote {
+  id     String      @id @default(cuid())
+  price  Float
+  note   String?     @db.Text
+  status QuoteStatus @default(PENDING)
+
+  // Relation back to Chat
+  chatId String @unique
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  // Explicitly track the provider who sent it for easier querying
+  providerId String
+  provider   User   @relation(fields: [providerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chatId])
+  @@index([providerId])
+}
+
+model Chat {
+  id String @id @default(cuid())
+
+  jobId String @unique
+  job   Job    @relation(fields: [jobId], references: [id])
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  customerId String
+  customer   User   @relation("CustomerChats", fields: [customerId], references: [id])
+
+  providerId String
+  provider   User   @relation("ProviderChats", fields: [providerId], references: [id])
+
+  // New relation: One chat can have one quote
+  quote Quote?
+
+  messages Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([providerId])
+  @@index([jobId])
+}
+
+enum MessageType {
+  CHAT
+  SYSTEM
+}
+
+model Message {
+  id      String      @id @default(cuid())
+  content String      @db.Text
+  type    MessageType @default(CHAT)
+
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  // The person who sent the message
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id])
+
+  // The person intended to receive the message
+  receiverId String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+  @@index([senderId])
+  @@index([receiverId])
 }

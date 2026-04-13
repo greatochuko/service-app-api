@@ -239,9 +239,7 @@ export async function requestService(
   const serviceId = req.params.id as string;
 
   const service = await prisma.service.findUnique({
-    where: {
-      id: serviceId,
-    },
+    where: { id: serviceId },
     select: { id: true, providerId: true },
   });
 
@@ -249,20 +247,50 @@ export async function requestService(
     throw new AppError("Service not found", 404);
   }
 
+  // Prevent user from requesting their own service
+  if (service.providerId === authUserId) {
+    throw new AppError("You cannot request your own service", 400);
+  }
+
   const { description, title, images, urgency, budget } = req.body;
 
-  const newJob = await prisma.job.create({
-    data: {
-      description,
-      serviceId,
-      title,
-      images,
-      customerId: authUserId,
-      budget,
-      urgency,
-    },
+  // Execute Job and Chat creation in a single transaction
+  const newJob = await prisma.$transaction(async (tx) => {
+    const job = await tx.job.create({
+      data: {
+        description,
+        serviceId,
+        title,
+        images,
+        customerId: authUserId,
+        budget,
+        urgency,
+      },
+    });
+
+    const newChat = await tx.chat.create({
+      data: {
+        jobId: job.id,
+        serviceId: service.id,
+        customerId: authUserId,
+        providerId: service.providerId,
+      },
+    });
+
+    await tx.message.create({
+      data: {
+        content: `New service request for "${title}"`,
+        chatId: newChat.id,
+        receiverId: service.providerId,
+        senderId: authUserId,
+        type: "SYSTEM",
+      },
+    });
+
+    return job;
   });
 
+  // Fire-and-forget notification (outside transaction to avoid blocking response)
   prisma.notification
     .create({
       data: {
