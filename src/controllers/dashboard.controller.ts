@@ -24,11 +24,11 @@ export async function getDashboardStats(
     },
   });
 
-  if (!user || user.services.length === 0) {
-    throw new AppError("No service profile found.", 404);
-  }
+  // if (!user || user.services.length === 0) {
+  //   throw new AppError("No service profile found.", 404);
+  // }
 
-  const serviceId = user.services[0].id;
+  const serviceId = user?.services[0]?.id || "";
 
   // 2. Execute remaining queries in parallel to avoid "waterfall" blocking
   const [activeJob, totalJobs, totalEarnings, pendingCount] = await Promise.all(
@@ -65,7 +65,7 @@ export async function getDashboardStats(
         pendingRequestsCount: pendingCount,
       },
       stats: {
-        averageRating: user.rating ?? 5.0,
+        averageRating: user?.rating ?? 5.0,
         totalEarnings: totalEarnings._sum.price || 0,
         totalJobs: totalJobs._count._all,
       },

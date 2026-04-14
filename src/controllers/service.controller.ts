@@ -115,7 +115,14 @@ export async function getTopServices(
 ) {
   const topServices = await prisma.service.findMany({
     include: {
-      provider: { select: { fullName: true, id: true, rating: true } },
+      provider: {
+        select: {
+          fullName: true,
+          id: true,
+          rating: true,
+          locations: { select: { address: true } },
+        },
+      },
     },
     take: 6,
   });
