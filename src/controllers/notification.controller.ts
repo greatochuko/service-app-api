@@ -11,7 +11,22 @@ export async function getNotifications(
 
   const notifications = await prisma.notification.findMany({
     where: { userId },
+    orderBy: { createdAt: "desc" },
   });
 
   res.json({ success: true, data: notifications });
+}
+
+export async function markNotificationsAsRead(
+  req: Request,
+  res: TypedResponse<boolean>,
+) {
+  const userId = req.user?.id as string;
+
+  await prisma.notification.updateMany({
+    where: { userId },
+    data: { read: true },
+  });
+
+  res.json({ success: true, data: true });
 }

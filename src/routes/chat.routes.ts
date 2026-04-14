@@ -5,6 +5,7 @@ import {
   declineQuote,
   getChats,
   getMessages,
+  markMessagesAsRead,
   sendMessage,
   sendQuote,
 } from "../controllers/chat.controller";
@@ -19,6 +20,8 @@ const router = Router();
 router.get("/", asyncHandler(getChats));
 
 router.get("/:id/messages", asyncHandler(getMessages));
+
+router.post("/:id/messages/mark-as-read", asyncHandler(markMessagesAsRead));
 
 router.post(
   "/:id/messages",

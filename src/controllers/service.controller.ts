@@ -8,6 +8,7 @@ import {
   RequestServiceBody,
 } from "../validators/service.validator";
 import { logger } from "../utils/logger";
+import { sendNotification } from "../services/notification.services";
 
 export async function searchServices(
   req: Request,
@@ -309,25 +310,12 @@ export async function requestService(
   }
 
   // Fire-and-forget notification (outside transaction to avoid blocking response)
-  prisma.notification
-    .create({
-      data: {
-        message: `You have a new request: ${title}`,
-        title: "New Job Request",
-        type: "JOB",
-        userId: service.providerId,
-      },
-    })
-    .then(() => {
-      logger.info(
-        `Notification sent to provider ${service.providerId} for job ${newJob.id}`,
-      );
-    })
-    .catch((err) => {
-      logger.error(
-        `Failed to send notification for job ${newJob.id}: ${err.message}`,
-      );
-    });
+  sendNotification({
+    message: `You have a new request: ${title}`,
+    title: "New Job Request",
+    type: "JOB",
+    userId: service.providerId,
+  });
 
   res.status(201).json({
     success: true,

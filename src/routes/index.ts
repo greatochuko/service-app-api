@@ -7,6 +7,7 @@ import notificationRoutes from "./notification.routes";
 import reviewRoutes from "./review.routes";
 import jobRoutes from "./job.routes";
 import chatRoutes from "./chat.routes";
+import dashboardRoutes from "./dashboard.routes";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -17,6 +18,8 @@ router.use(authenticate);
 
 router.use("/user", userRoutes);
 
+router.use("/dashboard", dashboardRoutes);
+
 router.use("/services", serviceRoutes);
 
 router.use("/payout", payoutRoutes);
@@ -26,6 +29,7 @@ router.use("/notifications", notificationRoutes);
 router.use("/reviews", reviewRoutes);
 
 router.use("/jobs", jobRoutes);
+
 router.use("/chat", chatRoutes);
 
 export default router;

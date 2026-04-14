@@ -3,6 +3,8 @@ import { TypedResponse } from "../types/express";
 import { Job } from "../generated/prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
+import { logger } from "../utils/logger";
+import { sendNotification } from "../services/notification.services";
 
 export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
   const authUserId = req.user?.id as string;
@@ -43,6 +45,7 @@ export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
         },
         chat: { select: { id: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
   } else {
     jobs = await prisma.job.findMany({
@@ -69,6 +72,7 @@ export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
         },
         chat: { select: { id: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -117,28 +121,21 @@ export async function startJob(req: Request, res: TypedResponse<Job>) {
   }
 
   // 5. Perform the update
-  const [updatedJob] = await prisma.$transaction([
-    // Update Job Status
-    prisma.job.update({
-      where: { id: jobId },
-      data: { status: "IN_PROGRESS" },
-      include: {
-        customer: { select: { id: true, fullName: true } },
-      },
-    }),
-    // Create Notification for Customer
-    prisma.notification.create({
-      data: {
-        type: "JOB",
-        title: "Work has Started",
-        message: `Your artisan has started working on: ${job.title}`,
-        userId: job.customerId, // The recipient
-      },
-    }),
-  ]);
+  const updatedJob = await prisma.job.update({
+    where: { id: jobId },
+    data: { status: "IN_PROGRESS" },
+    include: {
+      customer: { select: { id: true, fullName: true } },
+    },
+  });
 
-  // 6. Optional: Trigger notifications here (Socket.io / FCM)
-  // notifyCustomer(job.customerId, "Artisan has started your job!");
+  // Create Notification for Customer
+  sendNotification({
+    type: "JOB",
+    title: "Work has Started",
+    message: `Your artisan has started working on: ${job.title}`,
+    userId: job.customerId, // The recipient
+  });
 
   res.json({
     success: true,
@@ -285,6 +282,92 @@ export async function completeJob(req: Request, res: TypedResponse<Job>) {
   // 6. Optional: Trigger notifications (FCM)
   // notifyCustomer(job.customerId, "Work finished! Your artisan has sent the final invoice.");
 
+  res.json({
+    success: true,
+    data: updatedJob,
+  });
+}
+/**
+ * Controller to transition a job status from COMPLETED to PAID
+ */
+export async function payInvoice(req: Request, res: TypedResponse<Job>) {
+  const jobId = req.params.id as string;
+  const authUserId = req.user?.id as string;
+  const authUserRole = req.user?.role;
+
+  // 1. Authorization Check: Only Customers usually pay invoices
+  if (authUserRole !== "CUSTOMER") {
+    throw new AppError("Only customers can pay for invoices", 403);
+  }
+
+  // 2. Fetch job to verify ownership and state
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: {
+      id: true,
+      customerId: true,
+      status: true,
+      title: true,
+      price: true,
+      service: {
+        select: { providerId: true },
+      },
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Invoice/Job not found", 404);
+  }
+
+  // 3. Ownership Check: Ensure the person paying is the job's customer
+  if (job.customerId !== authUserId) {
+    throw new AppError("You are not authorized to pay for this invoice", 403);
+  }
+
+  // 4. Status Validation: Can only pay if work is COMPLETED
+  if (job.status !== "COMPLETED") {
+    throw new AppError(
+      `Cannot pay invoice with status: ${job.status}. Job must be completed first.`,
+      400,
+    );
+  }
+
+  // 5. Transaction: Update status and notify the provider
+  const updatedJob = await prisma.job.update({
+    where: { id: jobId },
+    data: {
+      status: "PAID",
+      // Optional: track payment timestamp if your schema supports it
+      // paidAt: new Date()
+    },
+  });
+
+  // Notify the Provider that they've been paid
+
+  const providerId = job.service?.providerId;
+  if (providerId) {
+    prisma.notification
+      .create({
+        data: {
+          type: "JOB",
+          title: "Payment Received",
+          message: `The customer has paid for "${job.title}". Total: $${job.price}`,
+          userId: providerId,
+        },
+      })
+      .then(() => {
+        logger.info(
+          `Notification sent to provider ${providerId} for job ${updatedJob.id}`,
+        );
+      })
+      .catch((err) => {
+        logger.error(
+          `Failed to send notification for job ${updatedJob.id}: ${err.message}`,
+        );
+      });
+  }
+
+  // 6. Return response
   res.json({
     success: true,
     data: updatedJob,

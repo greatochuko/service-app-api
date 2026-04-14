@@ -5,6 +5,7 @@ import {
   startJob,
   completeJob,
   cancelJob,
+  payInvoice,
 } from "../controllers/job.controller";
 
 const router = Router();
@@ -16,5 +17,7 @@ router.post("/:id/start", asyncHandler(startJob));
 router.post("/:id/cancel", asyncHandler(cancelJob));
 
 router.post("/:id/complete", asyncHandler(completeJob));
+
+router.post("/:id/pay", asyncHandler(payInvoice));
 
 export default router;

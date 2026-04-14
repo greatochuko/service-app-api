@@ -32,7 +32,7 @@ app.get("/health", (_, res): void => {
   });
 });
 
-const onlineUsers = new Map<string, string>(); // userId -> socketId
+export const onlineUsers = new Map<string, string>(); // userId -> socketId
 
 io.on("connection", (socket) => {
   logger.info(`User connected: ${socket.id}`);

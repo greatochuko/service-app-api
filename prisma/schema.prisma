@@ -152,23 +152,29 @@ model Bank {
 // schema.prisma
 
 enum NotificationType {
-  PAYOUT
+  PAYMENT
   JOB
   SYSTEM
-  MESSAGE
-  ALERT
+}
+
+enum NotificationSeverity {
+  INFO // Blue
+  SUCCESS // Green
+  WARNING // Orange/Yellow
+  CRITICAL // Red
 }
 
 model Notification {
-  id        String           @id @default(uuid())
+  id        String               @id @default(uuid())
   type      NotificationType
+  severity  NotificationSeverity @default(INFO) // The new field
   title     String
   message   String
-  read      Boolean          @default(false)
+  read      Boolean              @default(false)
   userId    String
-  user      User             @relation(fields: [userId], references: [id])
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  user      User                 @relation(fields: [userId], references: [id])
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 }
 
 model Review {
@@ -215,6 +221,7 @@ model Job {
   budget      Int?
   price       Int?
   images      String[]
+  address     String?
 
   status JobStatus @default(INQUIRY)
 

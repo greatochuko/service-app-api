@@ -4,8 +4,12 @@ import { TypedRequest, TypedResponse } from "../types/express";
 import { Chat, Message, UserRole } from "../generated/prisma/client";
 import { SendMessageBody, SendQuoteBody } from "../validators/chat.validator";
 import { AppError } from "../utils/AppError";
+import { onlineUsers } from "../server";
 
-export async function getChats(req: Request, res: TypedResponse<Chat[]>) {
+export async function getChats(
+  req: Request,
+  res: TypedResponse<{ chats: Chat[]; onlineUsers: string[] }>,
+) {
   const authUserId = req.user?.id as string;
   const authUserRole = req.user?.role as UserRole;
 
@@ -56,7 +60,10 @@ export async function getChats(req: Request, res: TypedResponse<Chat[]>) {
     });
   }
 
-  res.json({ success: true, data: chats });
+  res.json({
+    success: true,
+    data: { chats, onlineUsers: Array.from(onlineUsers.keys()) },
+  });
 }
 
 export async function getMessages(req: Request, res: TypedResponse<Message[]>) {
@@ -67,6 +74,23 @@ export async function getMessages(req: Request, res: TypedResponse<Message[]>) {
   });
 
   res.json({ success: true, data: messages });
+}
+
+export async function markMessagesAsRead(
+  req: Request,
+  res: TypedResponse<boolean>,
+) {
+  const authUserId = req.user?.id as string;
+  const chatId = req.params.id as string;
+
+  await prisma.message.updateMany({
+    where: { chatId, receiverId: authUserId },
+    data: {
+      isRead: true,
+    },
+  });
+
+  res.json({ success: true, data: true });
 }
 
 export async function sendMessage(
