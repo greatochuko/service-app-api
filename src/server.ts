@@ -48,10 +48,8 @@ io.on("connection", (socket) => {
     // Attach userId to socket for cleanup
     socket.data.userId = userId;
 
-    logger.info(`User ${userId} joined and is online`);
-
-    // 🔥 Notify others this user is online
-    socket.broadcast.emit("user_online", userId);
+    // 🔥 Notify others: Send an array of IDs, not the Map object itself
+    socket.broadcast.emit("online_users", Array.from(onlineUsers.keys()));
   });
 
   socket.on("disconnect", () => {
