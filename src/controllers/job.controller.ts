@@ -3,7 +3,6 @@ import { TypedResponse } from "../types/express";
 import { Job } from "../generated/prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
-import { logger } from "../utils/logger";
 import { sendNotification } from "../services/notification.services";
 
 export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
@@ -134,7 +133,9 @@ export async function startJob(req: Request, res: TypedResponse<Job>) {
     type: "JOB",
     title: "Work has Started",
     message: `Your artisan has started working on: ${job.title}`,
-    userId: job.customerId, // The recipient
+    userId: job.customerId,
+    io: req.io,
+    severity: "SUCCESS",
   });
 
   res.json({
@@ -195,15 +196,15 @@ export async function cancelJob(req: Request, res: TypedResponse<Job>) {
     // Since we already checked job.service existence in the Auth phase,
     // we can safely execute the notification creation here.
     if (job.service) {
-      await tx.notification.create({
-        data: {
-          type: "JOB",
-          title: "Inquiry Cancelled",
-          message: isCustomer
-            ? `The client cancelled their request for: ${job.title}`
-            : `The artisan has declined your inquiry for: ${job.title}`,
-          userId: isCustomer ? job.service.providerId : job.customerId,
-        },
+      sendNotification({
+        type: "JOB",
+        title: "Inquiry Cancelled",
+        message: isCustomer
+          ? `The client cancelled their request for: ${job.title}`
+          : `The artisan has declined your inquiry for: ${job.title}`,
+        userId: isCustomer ? job.service.providerId : job.customerId,
+        severity: "CRITICAL",
+        io: req.io,
       });
     }
 
@@ -259,25 +260,28 @@ export async function completeJob(req: Request, res: TypedResponse<Job>) {
   }
 
   // 5. Perform the update
-  const [updatedJob] = await prisma.$transaction([
+  const updatedJob = await prisma.$transaction(async (tx) => {
     // Update Job Status
-    prisma.job.update({
+    const job = await tx.job.update({
       where: { id: jobId },
       data: { status: "COMPLETED" },
       include: {
         customer: { select: { id: true, fullName: true } },
       },
-    }),
+    });
+
     // Create Notification for Customer
-    prisma.notification.create({
-      data: {
-        type: "JOB",
-        title: "Job Completed",
-        message: `Work finished for "${job.title}". Please view the receipt and finalize payment.`,
-        userId: job.customerId, // The recipient
-      },
-    }),
-  ]);
+    sendNotification({
+      title: "Job Completed",
+      message: `Work finished for "${job.title}". Please view the receipt and finalize payment.`,
+      type: "JOB",
+      severity: "SUCCESS",
+      userId: job.customerId,
+      io: req.io,
+    });
+
+    return job;
+  });
 
   // 6. Optional: Trigger notifications (FCM)
   // notifyCustomer(job.customerId, "Work finished! Your artisan has sent the final invoice.");
@@ -346,25 +350,14 @@ export async function payInvoice(req: Request, res: TypedResponse<Job>) {
 
   const providerId = job.service?.providerId;
   if (providerId) {
-    prisma.notification
-      .create({
-        data: {
-          type: "JOB",
-          title: "Payment Received",
-          message: `The customer has paid for "${job.title}". Total: $${job.price}`,
-          userId: providerId,
-        },
-      })
-      .then(() => {
-        logger.info(
-          `Notification sent to provider ${providerId} for job ${updatedJob.id}`,
-        );
-      })
-      .catch((err) => {
-        logger.error(
-          `Failed to send notification for job ${updatedJob.id}: ${err.message}`,
-        );
-      });
+    sendNotification({
+      title: "Payment Received",
+      message: `You've received payment for "${job.title}". The funds are now in your wallet.`,
+      type: "PAYMENT",
+      severity: "SUCCESS",
+      userId: providerId,
+      io: req.io,
+    });
   }
 
   // 6. Return response

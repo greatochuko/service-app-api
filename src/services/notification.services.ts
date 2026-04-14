@@ -1,16 +1,21 @@
 import { Server } from "socket.io";
 import { prisma } from "../config/prisma";
-import { NotificationType } from "../generated/prisma/enums";
+import {
+  NotificationSeverity,
+  NotificationType,
+} from "../generated/prisma/enums";
 import { logger } from "../utils/logger";
 
 export async function sendNotification({
   type,
+  severity,
   title,
   message,
   userId,
   io,
 }: {
   type: NotificationType;
+  severity?: NotificationSeverity;
   title: string;
   message: string;
   userId: string;
@@ -23,6 +28,7 @@ export async function sendNotification({
         title,
         message,
         userId,
+        severity,
       },
     });
 

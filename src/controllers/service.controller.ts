@@ -322,6 +322,8 @@ export async function requestService(
     title: "New Job Request",
     type: "JOB",
     userId: service.providerId,
+    io: req.io,
+    severity: "INFO",
   });
 
   res.status(201).json({
