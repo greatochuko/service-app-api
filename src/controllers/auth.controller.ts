@@ -63,7 +63,9 @@ export async function login(
   const { password, phoneNumber } = req.body;
 
   const user = await prisma.user.findFirst({
-    where: { phoneNumber: { endsWith: phoneNumber } },
+    where: {
+      phoneNumber: { endsWith: phoneNumber.slice(phoneNumber.length - 10) },
+    },
     include: { services: { take: 1 } },
   });
 

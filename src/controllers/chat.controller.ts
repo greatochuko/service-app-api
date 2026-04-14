@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma";
 import { TypedRequest, TypedResponse } from "../types/express";
 import { Chat, Message, UserRole } from "../generated/prisma/client";
 import { SendMessageBody, SendQuoteBody } from "../validators/chat.validator";
+import { AppError } from "../utils/AppError";
 
 export async function getChats(req: Request, res: TypedResponse<Chat[]>) {
   const authUserId = req.user?.id as string;
@@ -23,9 +24,10 @@ export async function getChats(req: Request, res: TypedResponse<Chat[]>) {
             locations: { select: { address: true } },
           },
         },
-        job: { select: { title: true, id: true } },
+        job: { select: { title: true, id: true, status: true } },
         messages: true,
         quote: true,
+        service: { select: { image: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -42,12 +44,13 @@ export async function getChats(req: Request, res: TypedResponse<Chat[]>) {
             locations: { select: { address: true } },
           },
         },
-        job: { select: { title: true, id: true } },
+        job: { select: { title: true, id: true, status: true } },
         messages: true,
         customer: {
           select: { id: true, locations: { select: { address: true } } },
         },
         quote: true,
+        service: { select: { image: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -112,9 +115,7 @@ export async function sendMessage(
   });
 
   if (req.io) {
-    req.io.to(receiverId).emit("message_received", {
-      ...message,
-    });
+    req.io.to(receiverId).emit("message_received", message);
   }
 
   res.status(201).json({ success: true, data: message });
@@ -134,10 +135,22 @@ export async function sendQuote(
       id: chatId,
       OR: [{ customerId: authUserId }, { providerId: authUserId }],
     },
+    select: {
+      customerId: true,
+      providerId: true,
+      job: { select: { status: true } },
+    },
   });
 
   if (!chat) {
-    return res.status(404).json({ success: false, message: "Chat not found" });
+    throw new AppError("Chat not found", 404);
+  }
+
+  if (chat.job.status !== "INQUIRY") {
+    throw new AppError(
+      `This action is only allowed during the job inquiry stage. Current status: ${chat.job.status}`,
+      400,
+    );
   }
 
   const receiverId = chat.customerId;

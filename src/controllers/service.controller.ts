@@ -252,11 +252,13 @@ export async function requestService(
     throw new AppError("You cannot request your own service", 400);
   }
 
-  const { description, title, images, urgency, budget } = req.body;
+  const { description, title: rawTitle, images, urgency, budget } = req.body;
+
+  const title = rawTitle.trim();
 
   // Execute Job and Chat creation in a single transaction
-  const newJob = await prisma.$transaction(async (tx) => {
-    const job = await tx.job.create({
+  const { newJob, newChat } = await prisma.$transaction(async (tx) => {
+    const newJob = await tx.job.create({
       data: {
         description,
         serviceId,
@@ -270,25 +272,41 @@ export async function requestService(
 
     const newChat = await tx.chat.create({
       data: {
-        jobId: job.id,
+        jobId: newJob.id,
         serviceId: service.id,
         customerId: authUserId,
         providerId: service.providerId,
+        messages: {
+          create: {
+            content: `New service request for "${title}"`,
+            receiverId: service.providerId,
+            senderId: authUserId,
+            type: "SYSTEM",
+          },
+        },
+      },
+      include: {
+        customer: {
+          select: {
+            fullName: true,
+            avatarUrl: true,
+            id: true,
+            phoneNumber: true,
+            locations: { select: { address: true } },
+          },
+        },
+        job: { select: { title: true, id: true, status: true } },
+        messages: true,
+        quote: true,
       },
     });
 
-    await tx.message.create({
-      data: {
-        content: `New service request for "${title}"`,
-        chatId: newChat.id,
-        receiverId: service.providerId,
-        senderId: authUserId,
-        type: "SYSTEM",
-      },
-    });
-
-    return job;
+    return { newJob, newChat };
   });
+
+  if (req.io) {
+    req.io.to(service.providerId).emit("new_chat", newChat);
+  }
 
   // Fire-and-forget notification (outside transaction to avoid blocking response)
   prisma.notification

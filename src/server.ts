@@ -32,15 +32,41 @@ app.get("/health", (_, res): void => {
   });
 });
 
+const onlineUsers = new Map<string, string>(); // userId -> socketId
+
 io.on("connection", (socket) => {
   logger.info(`User connected: ${socket.id}`);
 
-  socket.on("join_room", (roomId: string) => {
-    socket.join(roomId);
+  // 🔑 When user identifies themselves
+  socket.on("join_room", (userId: string) => {
+    // Join personal room (your existing logic)
+    socket.join(userId);
+
+    // Track user as online
+    onlineUsers.set(userId, socket.id);
+
+    // Attach userId to socket for cleanup
+    socket.data.userId = userId;
+
+    logger.info(`User ${userId} joined and is online`);
+
+    // 🔥 Notify others this user is online
+    socket.broadcast.emit("user_online", userId);
   });
 
   socket.on("disconnect", () => {
-    logger.info("User disconnected");
+    const userId = socket.data.userId;
+
+    if (userId) {
+      onlineUsers.delete(userId);
+
+      logger.info(`User ${userId} disconnected`);
+
+      // 🔥 Notify others this user went offline
+      socket.broadcast.emit("user_offline", userId);
+    } else {
+      logger.info(`Socket disconnected (no userId): ${socket.id}`);
+    }
   });
 });
 

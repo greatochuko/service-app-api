@@ -147,6 +147,81 @@ export async function startJob(req: Request, res: TypedResponse<Job>) {
 }
 
 /**
+ * Controller to transition a job status from PENDING to CANCELLED (Inquiry Stage)
+ */
+export async function cancelJob(req: Request, res: TypedResponse<Job>) {
+  const jobId = req.params.id as string;
+  const authUserId = req.user?.id as string;
+
+  // 1. Fetch the job to verify existence and participants
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    include: {
+      service: {
+        select: { providerId: true, title: true },
+      },
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404);
+  }
+
+  // 2. Authorization Check: Either the Customer or the Provider can cancel an inquiry
+  const isCustomer = job.customerId === authUserId;
+  const isProvider = job.service?.providerId === authUserId;
+
+  if (!isCustomer && !isProvider) {
+    throw new AppError("You are not authorized to cancel this job", 403);
+  }
+
+  // 3. Status Validation: Only allow cancellation if it's still in the inquiry (PENDING) phase
+  if (job.status !== "INQUIRY") {
+    throw new AppError(
+      `Cannot cancel inquiry with current status: ${job.status}. Use the formal cancellation process if already booked.`,
+      400,
+    );
+  }
+
+  // 4. Perform the update and notifications in a transaction
+  // 5. Perform the update via Interactive Transaction
+  const updatedJob = await prisma.$transaction(async (tx) => {
+    // Update the Job
+    const updated = await tx.job.update({
+      where: { id: jobId },
+      data: { status: "CANCELLED" },
+      include: {
+        customer: { select: { id: true, fullName: true } },
+      },
+    });
+
+    // Since we already checked job.service existence in the Auth phase,
+    // we can safely execute the notification creation here.
+    if (job.service) {
+      await tx.notification.create({
+        data: {
+          type: "JOB",
+          title: "Inquiry Cancelled",
+          message: isCustomer
+            ? `The client cancelled their request for: ${job.title}`
+            : `The artisan has declined your inquiry for: ${job.title}`,
+          userId: isCustomer ? job.service.providerId : job.customerId,
+        },
+      });
+    }
+
+    // Whatever you return from this function is what the transaction returns
+    return updated;
+  });
+
+  // 5. Success response
+  res.json({
+    success: true,
+    data: updatedJob,
+  });
+}
+
+/**
  * Controller to transition a job status from IN_PROGRESS to COMPLETED
  */
 export async function completeJob(req: Request, res: TypedResponse<Job>) {
