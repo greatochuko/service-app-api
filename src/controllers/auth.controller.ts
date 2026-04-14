@@ -97,9 +97,7 @@ export async function getSession(
 
   const { passwordHash: _, ...userWithoutPassword } = user;
 
-  res
-    .status(201)
-    .json({ success: true, data: userWithoutPassword as AuthUserReturnType });
+  res.json({ success: true, data: userWithoutPassword as AuthUserReturnType });
 }
 
 export async function changePassword(
