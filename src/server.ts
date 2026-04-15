@@ -61,7 +61,7 @@ io.on("connection", (socket) => {
       logger.info(`User ${userId} disconnected`);
 
       // 🔥 Notify others this user went offline
-      socket.broadcast.emit("user_offline", userId);
+      socket.broadcast.emit("online_users", Array.from(onlineUsers.keys()));
     } else {
       logger.info(`Socket disconnected (no userId): ${socket.id}`);
     }
