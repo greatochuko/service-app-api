@@ -246,6 +246,10 @@ export async function requestService(
   const authUserId = req.user?.id as string;
   const serviceId = req.params.id as string;
 
+  const authUserLocation = await prisma.location.findFirst({
+    where: { userId: authUserId },
+  });
+
   const service = await prisma.service.findUnique({
     where: { id: serviceId },
     select: { id: true, providerId: true },
@@ -275,6 +279,7 @@ export async function requestService(
         customerId: authUserId,
         budget,
         urgency,
+        address: authUserLocation?.address,
       },
     });
 
