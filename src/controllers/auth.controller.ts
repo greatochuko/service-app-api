@@ -66,7 +66,10 @@ export async function login(
     where: {
       phoneNumber: { endsWith: phoneNumber.slice(phoneNumber.length - 10) },
     },
-    include: { services: { take: 1 } },
+    include: {
+      services: { take: 1 },
+      locations: { select: { address: true } },
+    },
   });
 
   if (!user) throw new AppError("Invalid Email and password combination", 401);
