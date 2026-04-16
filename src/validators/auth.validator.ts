@@ -30,13 +30,13 @@ export const loginSchema = z.object({
     .refine((val) => val.length === 10, {
       message: "Please enter a valid Nigerian phone number",
     }),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string(),
 });
 
 export type LoginBody = z.infer<typeof loginSchema>;
 
 export const changePasswordSchema = z.object({
-  oldPassword: z.string().min(8, "Password must be at least 8 characters"),
+  oldPassword: z.string(),
   newPassword: z.string().min(8, "New Password must be at least 8 characters"),
 });
 
