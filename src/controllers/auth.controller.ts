@@ -6,12 +6,12 @@ import {
 import { prisma } from "../config/prisma";
 import { comparePassword, hashPassword } from "../utils/password";
 import { TypedRequest, TypedResponse } from "../types/express";
-import { Service, User } from "../generated/prisma/client";
+import { Location, Service, User } from "../generated/prisma/client";
 import { generateToken } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { Request } from "express";
 
-type AuthUserReturnType = User & { services: Service[] };
+type AuthUserReturnType = User & { services: Service[]; locations: Location[] };
 
 export async function signup(
   req: TypedRequest<SignupBody>,
@@ -92,7 +92,10 @@ export async function getSession(
 ) {
   const user = await prisma.user.findUnique({
     where: { id: req.user?.id },
-    include: { services: { take: 1 } },
+    include: {
+      services: { take: 1 },
+      locations: { select: { address: true } },
+    },
   });
 
   if (!user) throw new AppError("Unauthenticated", 401);
