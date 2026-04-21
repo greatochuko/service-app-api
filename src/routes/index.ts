@@ -8,6 +8,7 @@ import reviewRoutes from "./review.routes";
 import jobRoutes from "./job.routes";
 import chatRoutes from "./chat.routes";
 import dashboardRoutes from "./dashboard.routes";
+import addressRoutes from "./address.routes";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -31,5 +32,7 @@ router.use("/reviews", reviewRoutes);
 router.use("/jobs", jobRoutes);
 
 router.use("/chat", chatRoutes);
+
+router.use("/address", addressRoutes);
 
 export default router;
