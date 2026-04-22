@@ -49,6 +49,7 @@ export async function searchServices(
               ? { category: { equals: category, mode: "insensitive" } }
               : {},
             ratingFilter ? { provider: { rating: { gte: ratingFilter } } } : {},
+            { provider: { isAvailable: true } },
           ],
         },
         orderBy:
@@ -58,7 +59,9 @@ export async function searchServices(
               ? { createdAt: "desc" }
               : undefined,
         include: {
-          provider: { select: { fullName: true, id: true, rating: true } },
+          provider: {
+            select: { fullName: true, id: true, rating: true, locations: true },
+          },
         },
       });
       return res.json({ data: services, success: true });
@@ -114,6 +117,7 @@ export async function getTopServices(
   res: TypedResponse<Service[]>,
 ) {
   const topServices = await prisma.service.findMany({
+    where: { provider: { isAvailable: true } },
     include: {
       provider: {
         select: {
@@ -123,6 +127,9 @@ export async function getTopServices(
           locations: { select: { address: true } },
         },
       },
+    },
+    orderBy: {
+      jobs: { _count: "desc" },
     },
     take: 6,
   });
@@ -140,7 +147,13 @@ export async function getServiceById(
     where: { id: serviceId },
     include: {
       provider: {
-        select: { fullName: true, id: true, rating: true, avatarUrl: true },
+        select: {
+          fullName: true,
+          id: true,
+          rating: true,
+          avatarUrl: true,
+          locations: { select: { address: true } },
+        },
       },
       reviews: {
         include: {

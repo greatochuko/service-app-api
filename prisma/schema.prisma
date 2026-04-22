@@ -204,6 +204,11 @@ model Review {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id])
+
+  @@unique([authorId, jobId])
 }
 
 enum Urgency {
@@ -232,6 +237,8 @@ model Job {
   address     String?
 
   status JobStatus @default(INQUIRY)
+
+  reviews Review[]
 
   customerId String
   customer   User   @relation("CustomerJobs", fields: [customerId], references: [id])

@@ -57,6 +57,7 @@ export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
             locations: { select: { address: true } },
           },
         },
+        reviews: true,
         service: {
           select: {
             provider: {
