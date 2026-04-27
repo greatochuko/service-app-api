@@ -4,6 +4,7 @@ import { Job } from "../generated/prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { sendNotification } from "../services/notification.services";
+import { env } from "../config/env";
 
 export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
   const authUserId = req.user?.id as string;
@@ -295,75 +296,132 @@ export async function completeJob(req: Request, res: TypedResponse<Job>) {
 /**
  * Controller to transition a job status from COMPLETED to PAID
  */
-export async function payInvoice(req: Request, res: TypedResponse<Job>) {
+export async function generatePaystackReference(
+  req: Request,
+  res: TypedResponse<{ authorization_url: string }>,
+) {
   const jobId = req.params.id as string;
   const authUserId = req.user?.id as string;
-  const authUserRole = req.user?.role;
 
-  // 1. Authorization Check: Only Customers usually pay invoices
-  if (authUserRole !== "CUSTOMER") {
-    throw new AppError("Only customers can pay for invoices", 403);
-  }
+  // 1. Authorization & Job Validation
+  const user = await prisma.user.findUnique({
+    where: { id: authUserId },
+    select: { email: true },
+  });
 
-  // 2. Fetch job to verify ownership and state
   const job = await prisma.job.findUnique({
     where: { id: jobId },
-    select: {
-      id: true,
-      customerId: true,
-      status: true,
-      title: true,
-      price: true,
-      service: {
-        select: { providerId: true },
-      },
-    },
+    include: { service: true },
   });
 
-  if (!job) {
-    throw new AppError("Invoice/Job not found", 404);
+  if (!user || !job) throw new AppError("Not found", 404);
+  if (job.customerId !== authUserId) throw new AppError("Unauthorized", 403);
+  if (job.status !== "COMPLETED")
+    throw new AppError("Job must be completed", 400);
+  if (!job.price) throw new AppError("Price not set", 400);
+  if (job.paymentStatus === "SUCCESS") {
+    throw new AppError("This job has already been paid for", 400);
   }
 
-  // 3. Ownership Check: Ensure the person paying is the job's customer
-  if (job.customerId !== authUserId) {
-    throw new AppError("You are not authorized to pay for this invoice", 403);
+  // 2. Initialize Transaction with Paystack
+  // 1. Construct the base URL
+  const baseUrl = new URL(req.url, `${req.protocol}://${req.get("host")}`)
+    .origin;
+
+  // 2. Build the callback URL cleanly
+  const callbackUrl = new URL(`${baseUrl}/api/paystack/callback`);
+  callbackUrl.searchParams.append("jobId", jobId);
+
+  // Use callbackUrl.toString() when sending to Paystack
+
+  const response = await fetch(
+    "https://api.paystack.co/transaction/initialize",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: user.email,
+        amount: job.price * 100,
+        callback_url: callbackUrl,
+      }),
+    },
+  );
+
+  const result: {
+    status: true;
+    message: string;
+    data: {
+      authorization_url: string;
+      access_code: string;
+      reference: string;
+    };
+  } = await response.json();
+
+  if (!result.status) {
+    throw new AppError("Failed to initialize payment", 400);
   }
 
-  // 4. Status Validation: Can only pay if work is COMPLETED
-  if (job.status !== "COMPLETED") {
-    throw new AppError(
-      `Cannot pay invoice with status: ${job.status}. Job must be completed first.`,
-      400,
-    );
-  }
-
-  // 5. Transaction: Update status and notify the provider
-  const updatedJob = await prisma.job.update({
+  // 3. Save the reference to the database
+  await prisma.job.update({
     where: { id: jobId },
     data: {
-      status: "PAID",
-      // Optional: track payment timestamp if your schema supports it
-      // paidAt: new Date()
+      paymentReference: result.data.reference,
+      paymentStatus: "PENDING",
     },
   });
 
-  // Notify the Provider that they've been paid
+  // 4. Return the URL to the frontend
+  res.json({
+    success: true,
+    data: { authorization_url: result.data.authorization_url },
+  });
+}
 
-  const providerId = job.service?.providerId;
-  if (providerId) {
-    sendNotification({
-      title: "Payment Received",
-      message: `You've received payment for "${job.title}". The funds are now in your wallet.`,
-      type: "PAYMENT",
-      severity: "SUCCESS",
-      userId: providerId,
-      io: req.io,
+export async function verifyPaymentStatus(
+  req: Request,
+  res: TypedResponse<boolean>,
+) {
+  const jobId = req.params.id as string;
+  const authUserId = req.user?.id as string;
+
+  const user = await prisma.user.findUnique({
+    where: { id: authUserId },
+    select: { email: true },
+  });
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    include: { service: true },
+  });
+
+  if (!user || !job) throw new AppError("Not found", 404);
+  if (job.customerId !== authUserId) throw new AppError("Unauthorized", 403);
+
+  const response = await fetch(
+    `https://api.paystack.co/transaction/verify/${job.paymentReference}`,
+    {
+      headers: {
+        Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  const { data, status } = await response.json();
+
+  if (status && data.status) {
+    return res.json({
+      success: true,
+      data: true,
     });
   }
 
-  // 6. Return response
-  res.json({
-    success: true,
-    data: updatedJob,
+  res.status(400).json({
+    success: false,
+    message:
+      "Payment verification failed: The job has not been marked as paid. Please complete the payment.",
   });
 }

@@ -19,17 +19,7 @@ export const signupSchema = z.object({
 export type SignupBody = z.infer<typeof signupSchema>;
 
 export const loginSchema = z.object({
-  phoneNumber: z
-    .string()
-    .transform((val) => {
-      // 1. Remove everything that isn't a number (+, -, spaces)
-      const digitsOnly = val.replace(/\D/g, "");
-      // 2. Take the last 10 digits to support both 080... and 80...
-      return digitsOnly.slice(-10);
-    })
-    .refine((val) => val.length === 10, {
-      message: "Please enter a valid Nigerian phone number",
-    }),
+  email: z.email(),
   password: z.string(),
 });
 

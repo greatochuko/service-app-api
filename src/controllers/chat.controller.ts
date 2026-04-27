@@ -347,7 +347,7 @@ export async function acceptQuote(req: Request, res: TypedResponse<Message>) {
 
     await tx.job.update({
       where: { id: chat.jobId },
-      data: { status: "BOOKED" },
+      data: { status: "BOOKED", price: quote.price },
     });
 
     return { newMsg, quote };

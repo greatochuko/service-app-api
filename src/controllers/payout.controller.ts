@@ -7,6 +7,7 @@ import { SaveBankAccountBody } from "../validators/payout.validator";
 import { prisma } from "../config/prisma";
 import { BankType } from "../types/payout.type";
 import { BankCreateManyInput } from "../generated/prisma/models";
+import { createPaystackSubaccount } from "../services/paystack.services";
 
 export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
   try {
@@ -122,6 +123,13 @@ export async function saveBankAccount(
     where: { userId },
   });
 
+  const paystackRes = await createPaystackSubaccount({
+    business_name: accountName,
+    settlement_bank: bankCode,
+    account_number: accountNumber,
+    percentage_charge: 0.1, // 10% commission
+  });
+
   const newBankAccount = await prisma.bankAccount.create({
     data: {
       accountName,
@@ -130,6 +138,7 @@ export async function saveBankAccount(
       bankName,
       userId,
       isPrimary: userHasBankAccounts < 1,
+      paystackSubaccountCode: paystackRes.subaccount_code,
     },
   });
 
@@ -199,11 +208,22 @@ export async function makeDefaultAccount(
       throw new AppError("Unauthorized to modify this bank account", 403);
     }
 
+    // 1. Ensure the account actually has a Paystack subaccount code
+    // If it doesn't, you might need to create it here or block the action
+    if (!bankAccountToMakeDefault.paystackSubaccountCode) {
+      throw new AppError(
+        "This account is not registered with our payment processor. Please re-add it.",
+        400,
+      );
+    }
+
+    // 2. Set all to false
     await tx.bankAccount.updateMany({
       where: { userId },
       data: { isPrimary: false },
     });
 
+    // 3. Set chosen to true
     return await tx.bankAccount.update({
       where: { id: bankAccountId },
       data: { isPrimary: true },
