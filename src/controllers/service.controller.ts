@@ -176,6 +176,17 @@ export async function createService(
 ) {
   const authUserId = req.user?.id as string;
 
+  const user = await prisma.user.findUnique({
+    where: { id: authUserId },
+    select: { id: true, wallet: true },
+  });
+
+  if (!user?.wallet) {
+    throw new AppError(
+      "You have not added a bank account. Please do so in the settings in order to create a service.",
+    );
+  }
+
   const existingService = await prisma.service.findFirst({
     where: {
       providerId: authUserId,

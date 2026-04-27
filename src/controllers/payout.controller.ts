@@ -7,7 +7,7 @@ import { SaveBankAccountBody } from "../validators/payout.validator";
 import { prisma } from "../config/prisma";
 import { BankType } from "../types/payout.type";
 import { BankCreateManyInput } from "../generated/prisma/models";
-import { createPaystackSubaccount } from "../services/paystack.services";
+import { upsertPaystackSubaccount } from "../services/paystack.services";
 
 export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
   try {
@@ -108,6 +108,13 @@ export async function saveBankAccount(
   const userId = req.user?.id as string;
   const { accountName, accountNumber, bankCode, bankName } = req.body;
 
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, wallet: true },
+  });
+
+  if (!user) throw new AppError("Invalid User ID");
+
   const bankAccountExists = await prisma.bankAccount.findFirst({
     where: { userId, bankCode, accountNumber },
   });
@@ -123,23 +130,34 @@ export async function saveBankAccount(
     where: { userId },
   });
 
-  const paystackRes = await createPaystackSubaccount({
-    business_name: accountName,
-    settlement_bank: bankCode,
-    account_number: accountNumber,
-    percentage_charge: 0.1, // 10% commission
-  });
+  const newBankAccount = await prisma.$transaction(async (tx) => {
+    if (!user.wallet) {
+      const { data: paystackData } = await upsertPaystackSubaccount({
+        business_name: accountName,
+        settlement_bank: bankCode,
+        account_number: accountNumber,
+      });
 
-  const newBankAccount = await prisma.bankAccount.create({
-    data: {
-      accountName,
-      accountNumber,
-      bankCode,
-      bankName,
-      userId,
-      isPrimary: userHasBankAccounts < 1,
-      paystackSubaccountCode: paystackRes.subaccount_code,
-    },
+      if (!paystackData) throw new AppError("Server Error", 500);
+
+      await tx.wallet.create({
+        data: {
+          userId,
+          paystackSubaccountCode: paystackData.subaccount_code,
+        },
+      });
+    }
+
+    return await tx.bankAccount.create({
+      data: {
+        accountName,
+        accountNumber,
+        bankCode,
+        bankName,
+        userId,
+        isPrimary: userHasBankAccounts < 1,
+      },
+    });
   });
 
   res.json({ success: true, data: newBankAccount });
@@ -187,48 +205,78 @@ export async function deleteBankAccount(
 
   res.json({ success: true, data: deletedBankAccount });
 }
-
 export async function makeDefaultAccount(
   req: Request,
   res: TypedResponse<BankAccount>,
 ) {
-  const userId = req.user?.id as string;
+  const userId = req.user?.id;
   const bankAccountId = req.params.id as string;
 
-  const newDefaultBankAccount = await prisma.$transaction(async (tx) => {
-    const bankAccountToMakeDefault = await tx.bankAccount.findUnique({
-      where: { id: bankAccountId },
-    });
+  if (!userId)
+    throw new AppError("Authentication required: User ID missing.", 401);
 
-    if (!bankAccountToMakeDefault) {
-      throw new AppError("Bank account not found", 404);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, wallet: true },
+  });
+
+  if (!user) throw new AppError("User account not found.", 404);
+
+  const bankAccountToMakeDefault = await prisma.bankAccount.findUnique({
+    where: { id: bankAccountId },
+  });
+
+  if (!bankAccountToMakeDefault) {
+    throw new AppError("The requested bank account does not exist.", 404);
+  }
+
+  if (bankAccountToMakeDefault.userId !== userId) {
+    throw new AppError("Access denied: You do not own this bank account.", 403);
+  }
+
+  // Handle Paystack Integration
+  const { data: paystackData } = await upsertPaystackSubaccount(
+    {
+      business_name: bankAccountToMakeDefault.accountName,
+      settlement_bank: bankAccountToMakeDefault.bankCode,
+      account_number: bankAccountToMakeDefault.accountNumber,
+    },
+    user.wallet?.paystackSubaccountCode,
+  );
+
+  if (!paystackData?.subaccount_code) {
+    throw new AppError(
+      "Failed to update bank details with payment provider. Please try again later.",
+      502,
+    );
+  }
+
+  // Update Database via Transaction
+  const updatedBankAccount = await prisma.$transaction(async (tx) => {
+    // 1. Sync Wallet/Subaccount code
+    if (!user.wallet) {
+      await tx.wallet.create({
+        data: { userId, paystackSubaccountCode: paystackData.subaccount_code },
+      });
+    } else {
+      await tx.wallet.update({
+        where: { userId },
+        data: { paystackSubaccountCode: paystackData.subaccount_code },
+      });
     }
 
-    if (bankAccountToMakeDefault.userId !== userId) {
-      throw new AppError("Unauthorized to modify this bank account", 403);
-    }
-
-    // 1. Ensure the account actually has a Paystack subaccount code
-    // If it doesn't, you might need to create it here or block the action
-    if (!bankAccountToMakeDefault.paystackSubaccountCode) {
-      throw new AppError(
-        "This account is not registered with our payment processor. Please re-add it.",
-        400,
-      );
-    }
-
-    // 2. Set all to false
+    // 2. Clear previous primary status
     await tx.bankAccount.updateMany({
-      where: { userId },
+      where: { userId, isPrimary: true },
       data: { isPrimary: false },
     });
 
-    // 3. Set chosen to true
+    // 3. Set new primary account
     return await tx.bankAccount.update({
       where: { id: bankAccountId },
       data: { isPrimary: true },
     });
   });
 
-  res.json({ success: true, data: newDefaultBankAccount });
+  return res.json({ success: true, data: updatedBankAccount });
 }

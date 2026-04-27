@@ -10,6 +10,7 @@ import chatRoutes from "./chat.routes";
 import dashboardRoutes from "./dashboard.routes";
 import addressRoutes from "./address.routes";
 import paystackRoutes from "./paystack.routes";
+import earningRoutes from "./earning.routes";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -37,5 +38,7 @@ router.use("/jobs", jobRoutes);
 router.use("/chat", chatRoutes);
 
 router.use("/address", addressRoutes);
+
+router.use("/earnings", earningRoutes);
 
 export default router;

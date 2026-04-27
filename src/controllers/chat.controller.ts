@@ -184,20 +184,22 @@ export async function sendQuote(
     // 1. If it's a quote, handle the Quote model creation
 
     if (chat.providerId !== authUserId) {
-      throw new Error("Only providers can send quotes");
+      throw new AppError("Only providers can send quotes");
     }
+
+    const priceKobo = price * 100;
 
     const quote = await tx.quote.upsert({
       where: { chatId: chatId },
       update: {
-        price,
+        priceKobo,
         note: note,
         status: "PENDING",
       },
       create: {
         chatId: chatId,
         providerId: authUserId,
-        price,
+        priceKobo,
         note: note,
         status: "PENDING",
       },
@@ -255,7 +257,7 @@ export async function declineQuote(req: Request, res: TypedResponse<Message>) {
     // 1. If it's a quote, handle the Quote model creation
 
     if (chat.customerId !== authUserId) {
-      throw new Error("Only customers can decline quotes");
+      throw new AppError("Only customers can decline quotes");
     }
 
     const quote = await tx.quote.update({
@@ -310,15 +312,24 @@ export async function acceptQuote(req: Request, res: TypedResponse<Message>) {
     return res.status(404).json({ success: false, message: "Chat not found" });
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: authUserId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    throw new AppError("User account not found.", 404);
+  }
+
   const receiverId = chat.providerId;
+
+  if (chat.customerId !== authUserId) {
+    throw new AppError("Only customers can accept quotes");
+  }
 
   // logic for quote creation
   const { newMsg, quote } = await prisma.$transaction(async (tx) => {
     // 1. If it's a quote, handle the Quote model creation
-
-    if (chat.customerId !== authUserId) {
-      throw new Error("Only customers can accept quotes");
-    }
 
     const quote = await tx.quote.update({
       where: { chatId: chatId },
@@ -347,7 +358,7 @@ export async function acceptQuote(req: Request, res: TypedResponse<Message>) {
 
     await tx.job.update({
       where: { id: chat.jobId },
-      data: { status: "BOOKED", price: quote.price },
+      data: { status: "BOOKED", priceKobo: quote.priceKobo },
     });
 
     return { newMsg, quote };

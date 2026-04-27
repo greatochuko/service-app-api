@@ -12,9 +12,18 @@ export async function getProviderReviews(
   const userId = req.user?.id as string;
   const serviceId = req.query.serviceId as string;
 
-  const reviews = await prisma.review.findMany({
-    where: { providerId: userId, ...(serviceId ? { serviceId } : {}) },
-  });
+  let reviews;
+  if (serviceId) {
+    reviews = await prisma.review.findMany({
+      where: { serviceId },
+      include: { author: { select: { fullName: true } } },
+    });
+  } else {
+    reviews = await prisma.review.findMany({
+      where: { providerId: userId },
+      include: { author: { select: { fullName: true } } },
+    });
+  }
 
   res.json({ success: true, data: reviews });
 }

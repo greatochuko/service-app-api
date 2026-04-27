@@ -47,7 +47,7 @@ export async function getDashboardStats(
 
       prisma.job.aggregate({
         where: { serviceId, status: "PAID" },
-        _sum: { price: true },
+        _sum: { priceKobo: true },
       }),
 
       // Count specific statuses
@@ -66,7 +66,7 @@ export async function getDashboardStats(
       },
       stats: {
         averageRating: user?.rating ?? 5.0,
-        totalEarnings: totalEarnings._sum.price || 0,
+        totalEarnings: totalEarnings._sum.priceKobo || 0,
         totalJobs: totalJobs._count._all,
       },
     },

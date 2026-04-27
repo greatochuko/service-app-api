@@ -22,7 +22,7 @@ export async function signup(
 
   const userExists = await prisma.user.findFirst({
     where: {
-      OR: [{ email }, { phoneNumber }],
+      email,
     },
     select: { id: true },
   });

@@ -306,19 +306,41 @@ export async function generatePaystackReference(
   // 1. Authorization & Job Validation
   const user = await prisma.user.findUnique({
     where: { id: authUserId },
-    select: { email: true },
+    select: {
+      email: true,
+    },
   });
 
   const job = await prisma.job.findUnique({
     where: { id: jobId },
-    include: { service: true },
+    select: {
+      service: {
+        select: {
+          provider: {
+            select: {
+              wallet: true,
+            },
+          },
+        },
+      },
+      status: true,
+      customerId: true,
+      priceKobo: true,
+      paymentStatus: true,
+    },
   });
 
   if (!user || !job) throw new AppError("Not found", 404);
+  if (!job.service?.provider.wallet) {
+    throw new AppError(
+      "The artisan has no bank accounts connected. Please contact the artisan.",
+      400,
+    );
+  }
   if (job.customerId !== authUserId) throw new AppError("Unauthorized", 403);
   if (job.status !== "COMPLETED")
     throw new AppError("Job must be completed", 400);
-  if (!job.price) throw new AppError("Price not set", 400);
+  if (!job.priceKobo) throw new AppError("Price not set", 400);
   if (job.paymentStatus === "SUCCESS") {
     throw new AppError("This job has already been paid for", 400);
   }
@@ -344,8 +366,9 @@ export async function generatePaystackReference(
       },
       body: JSON.stringify({
         email: user.email,
-        amount: job.price * 100,
+        amount: job.priceKobo,
         callback_url: callbackUrl,
+        subaccount: job.service.provider.wallet.paystackSubaccountCode,
       }),
     },
   );

@@ -9,8 +9,8 @@ const locationSchema = z.object({
 
 export const signupSchema = z.object({
   accountType: z.enum(UserRole),
-  email: z.email("Please enter a valid email").optional(),
-  phoneNumber: z.string(),
+  email: z.email("Please enter a valid email"),
+  phoneNumber: z.string().optional(),
   fullName: z.string(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   location: locationSchema,

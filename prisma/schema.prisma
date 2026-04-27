@@ -63,9 +63,11 @@ model User {
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
 
-  customerChats Chat[]  @relation("CustomerChats")
-  providerChats Chat[]  @relation("ProviderChats")
+  customerChats Chat[]        @relation("CustomerChats")
+  providerChats Chat[]        @relation("ProviderChats")
   quotes        Quote[]
+  wallet        Wallet?
+  transactions  Transaction[]
 
   @@index([email, phoneNumber])
   @@index([role, status])
@@ -123,15 +125,14 @@ model Service {
 }
 
 model BankAccount {
-  id                     String   @id @default(uuid())
-  bankName               String
-  bankCode               String
-  accountNumber          String
-  accountName            String
-  isPrimary              Boolean
-  paystackSubaccountCode String
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id            String   @id @default(uuid())
+  bankName      String
+  bankCode      String
+  accountNumber String
+  accountName   String
+  isPrimary     Boolean
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -239,7 +240,7 @@ model Job {
   description String   @db.Text
   urgency     Urgency  @default(MEDIUM)
   budget      Int?
-  price       Int?
+  priceKobo   Int?
   images      String[]
   address     String?
 
@@ -270,10 +271,10 @@ enum QuoteStatus {
 }
 
 model Quote {
-  id     String      @id @default(cuid())
-  price  Float
-  note   String?     @db.Text
-  status QuoteStatus @default(PENDING)
+  id        String      @id @default(cuid())
+  priceKobo Int
+  note      String?     @db.Text
+  status    QuoteStatus @default(PENDING)
 
   // Relation back to Chat
   chatId String @unique
@@ -345,4 +346,42 @@ model Message {
   @@index([chatId])
   @@index([senderId])
   @@index([receiverId])
+}
+
+model Wallet {
+  id                     String   @id @default(uuid())
+  balanceKobo            Int      @default(0)
+  paystackSubaccountCode String
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id])
+  updatedAt              DateTime @updatedAt
+  createdAt              DateTime @default(now())
+}
+
+// Transaction stores your internal record of all financial activity
+model Transaction {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Paystack details
+  paystackRef String            @unique
+  amountKobo  Int
+  type        TransactionType // Enum: CREDIT, DEBIT, WITHDRAWAL
+  status      TransactionStatus // Enum: PENDING, SUCCESS, FAILED
+
+  note      String
+  createdAt DateTime @default(now())
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  WITHDRAWAL
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
