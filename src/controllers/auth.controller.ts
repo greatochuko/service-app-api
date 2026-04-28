@@ -154,7 +154,7 @@ export async function refreshSession(
     where: { id: req.user?.id },
     include: {
       services: { take: 1 },
-      locations: { select: { address: true } },
+      locations: { where: { isDefault: true }, select: { address: true } },
     },
   });
 
@@ -191,7 +191,7 @@ export async function login(
     },
     include: {
       services: { take: 1 },
-      locations: { select: { address: true } },
+      locations: { where: { isDefault: true }, select: { address: true } },
     },
   });
 
@@ -225,7 +225,7 @@ export async function getSession(
     where: { id: req.user?.id },
     include: {
       services: { take: 1 },
-      locations: { select: { address: true } },
+      locations: { where: { isDefault: true }, select: { address: true } },
     },
   });
 
