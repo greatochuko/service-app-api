@@ -9,6 +9,7 @@ export const env = {
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
 };
 
 const missingEnvs = Object.entries(env)

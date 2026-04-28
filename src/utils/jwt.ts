@@ -1,4 +1,4 @@
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, { JwtPayload, SignOptions } from "jsonwebtoken";
 import { UserRole } from "../generated/prisma/client";
 import { env } from "../config/env";
 
@@ -9,9 +9,12 @@ export type AuthTokenPayload = {
   role: UserRole;
 };
 
-export const generateToken = (payload: AuthTokenPayload) => {
+export const generateToken = (
+  payload: AuthTokenPayload,
+  expiresIn: SignOptions["expiresIn"] = "7d",
+) => {
   return jwt.sign(payload, secret, {
-    expiresIn: "7d",
+    expiresIn: expiresIn,
   });
 };
 

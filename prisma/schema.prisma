@@ -373,8 +373,8 @@ model Transaction {
   type        TransactionType // Enum: CREDIT, DEBIT, WITHDRAWAL
   status      TransactionStatus // Enum: PENDING, SUCCESS, FAILED
 
-  jobId String @unique
-  job   Job    @relation(fields: [jobId], references: [id])
+  jobId String? @unique
+  job   Job?    @relation(fields: [jobId], references: [id])
 
   note      String
   createdAt DateTime @default(now())
@@ -390,4 +390,21 @@ enum TransactionStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+model Otp {
+  id         String   @id @default(uuid())
+  // The identifier (e.g., email or phone number)
+  identifier String
+  // The hashed OTP code
+  code       String
+  // Expiration timestamp
+  expiresAt  DateTime
+  // Whether the code has been used
+  isUsed     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([identifier, isUsed])
 }

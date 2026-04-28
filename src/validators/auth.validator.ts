@@ -25,6 +25,19 @@ export const loginSchema = z.object({
 
 export type LoginBody = z.infer<typeof loginSchema>;
 
+export const sendOtpSchema = z.object({
+  email: z.email(),
+});
+
+export type SendOtpBody = z.infer<typeof sendOtpSchema>;
+
+export const verifyOtpSchema = z.object({
+  email: z.email(),
+  code: z.string(),
+});
+
+export type VerifyOtpBody = z.infer<typeof verifyOtpSchema>;
+
 export const changePasswordSchema = z.object({
   oldPassword: z.string(),
   newPassword: z.string().min(8, "New Password must be at least 8 characters"),

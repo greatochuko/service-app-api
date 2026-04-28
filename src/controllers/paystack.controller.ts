@@ -78,6 +78,7 @@ export async function paymentCallback(req: Request, res: Response) {
             type: "CREDIT",
             status: "SUCCESS",
             note: `${job.title} - ${job.customer.fullName}`,
+            jobId,
           },
         });
 
