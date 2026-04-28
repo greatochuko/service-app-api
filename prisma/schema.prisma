@@ -128,6 +128,7 @@ model BankAccount {
   id            String   @id @default(uuid())
   bankName      String
   bankCode      String
+  recipientCode String?
   accountNumber String
   accountName   String
   isPrimary     Boolean

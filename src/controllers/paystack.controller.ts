@@ -4,7 +4,7 @@ import { logger } from "../utils/logger";
 import { env } from "../config/env";
 import { sendNotification } from "../services/notification.services";
 
-export const PERCENTAGE_CHARGE = 0.1;
+export const PERCENTAGE_CHARGE = 10;
 
 export async function paymentCallback(req: Request, res: Response) {
   try {
@@ -67,7 +67,8 @@ export async function paymentCallback(req: Request, res: Response) {
         });
 
         // B. Create Transaction Record
-        const calculatedAmount = data.amount * (1 - PERCENTAGE_CHARGE);
+        const ARTISAN_FACTOR = 1 - PERCENTAGE_CHARGE / 100;
+        const calculatedAmount = data.amount * ARTISAN_FACTOR;
 
         await tx.transaction.create({
           data: {
