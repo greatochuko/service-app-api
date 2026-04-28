@@ -1,9 +1,11 @@
 import {
   ChangePasswordBody,
+  ResetPasswordBody,
   LoginBody,
   SendOtpBody,
   SignupBody,
   VerifyOtpBody,
+  ForgotPasswordBody,
 } from "../validators/auth.validator";
 import { prisma } from "../config/prisma";
 import { comparePassword, hashPassword } from "../utils/password";
@@ -17,6 +19,7 @@ import bcrypt from "bcryptjs";
 import { getOtpEmailTemplate } from "../emails/otpEmailTemplate";
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
+import { getForgotPasswordOtpEmailTemplate } from "../emails/forgotPasswordEmailTemplate";
 
 type AuthUserReturnType = User & { services: Service[]; locations: Location[] };
 
@@ -259,6 +262,71 @@ export async function changePassword(
 
   const updatedUser = await prisma.user.update({
     where: { id: req.user?.id },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      passwordLastChangedAt: new Date(),
+    },
+  });
+
+  const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+
+  res
+    .status(201)
+    .json({ success: true, data: userWithoutPassword as unknown as User });
+}
+
+export const forgotPassword = async (
+  req: TypedRequest<ForgotPasswordBody>,
+  res: TypedResponse<boolean>,
+) => {
+  const { email } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) throw new AppError("No account found with this email address.");
+
+  const rawCode = Math.floor(10000 + Math.random() * 90000).toString();
+  const hashedCode = await bcrypt.hash(rawCode, 10);
+
+  // 2. Save to DB
+  await prisma.otp.create({
+    data: {
+      identifier: email,
+      code: hashedCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+    },
+  });
+
+  // 3. Send via Resend
+  const { data, error } = await resend.emails.send({
+    from: "ServiceApp <hello@greatochuko.com>",
+    to: email,
+    subject: "Reset Your Password - One-Time Code",
+    html: getForgotPasswordOtpEmailTemplate(rawCode),
+  });
+
+  if (!data) throw new AppError(error.message);
+
+  logger.info("OTP sent successfully");
+
+  res.json({ success: true, data: true });
+};
+
+export async function resetPassword(
+  req: TypedRequest<ResetPasswordBody>,
+  res: TypedResponse<User>,
+) {
+  const { email, newPassword } = req.body;
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (!user) throw new AppError("Invalid user email", 400);
+
+  const updatedUser = await prisma.user.update({
+    where: { id: user.id },
     data: {
       passwordHash: await hashPassword(newPassword),
       passwordLastChangedAt: new Date(),

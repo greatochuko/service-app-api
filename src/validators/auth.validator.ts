@@ -44,3 +44,16 @@ export const changePasswordSchema = z.object({
 });
 
 export type ChangePasswordBody = z.infer<typeof changePasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  email: z.email(),
+  newPassword: z.string().min(8, "New Password must be at least 8 characters"),
+});
+
+export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.email(),
+});
+
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordSchema>;
