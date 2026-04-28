@@ -80,6 +80,22 @@ export async function getJobs(req: Request, res: TypedResponse<Job[]>) {
   res.json({ success: true, data: jobs });
 }
 
+export async function getJobReceipt(req: Request, res: TypedResponse<Job>) {
+  const jobId = req.params.id as string;
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    include: {
+      customer: { select: { fullName: true } },
+      service: { select: { title: true, features: true } },
+    },
+  });
+
+  if (!job) throw new AppError("Job not found", 404);
+
+  res.json({ success: true, data: job });
+}
+
 /**
  * Controller to transition a job status from BOOKED to IN_PROGRESS
  */

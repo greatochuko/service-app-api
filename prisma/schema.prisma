@@ -261,6 +261,8 @@ model Job {
   updatedAt DateTime @updatedAt
   chat      Chat?
 
+  transaction Transaction?
+
   @@index([customerId])
   @@index([serviceId])
 }
@@ -370,6 +372,9 @@ model Transaction {
   amountKobo  Int
   type        TransactionType // Enum: CREDIT, DEBIT, WITHDRAWAL
   status      TransactionStatus // Enum: PENDING, SUCCESS, FAILED
+
+  jobId String @unique
+  job   Job    @relation(fields: [jobId], references: [id])
 
   note      String
   createdAt DateTime @default(now())
