@@ -4,6 +4,7 @@ import { DashboardResponse } from "../types/dashboard.type";
 import { AuthTokenPayload } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { prisma } from "../config/prisma";
+import { AuthUserReturnType } from "./auth.controller";
 
 export async function getDashboardStats(
   req: Request,
@@ -17,12 +18,17 @@ export async function getDashboardStats(
 
   // 1. Get the user and their first service ID in one hit
   const user = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    select: {
-      rating: true,
-      services: { take: 1, select: { id: true } },
+    where: { id: req.user?.id },
+    include: {
+      services: { take: 1 },
+      locations: { where: { isDefault: true }, select: { address: true } },
+      bankAccounts: { where: { isPrimary: true } },
     },
   });
+
+  if (!user) throw new AppError("Unauthenticated", 401);
+
+  const { passwordHash: _, ...userWithoutPassword } = user;
 
   // if (!user || user.services.length === 0) {
   //   throw new AppError("No service profile found.", 404);
@@ -69,6 +75,7 @@ export async function getDashboardStats(
         totalEarnings: totalEarnings._sum.priceKobo || 0,
         totalJobs: totalJobs._count._all,
       },
+      user: userWithoutPassword as AuthUserReturnType,
     },
   });
 }

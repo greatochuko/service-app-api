@@ -9,8 +9,9 @@ export const saveBankAccountSchema = z.object({
 
 export type SaveBankAccountBody = z.infer<typeof saveBankAccountSchema>;
 
-export const withdrawFundsSchema = z.object({
-  amountKobo: z.number(),
+export const generateStatementSchema = z.object({
+  startDate: z.string(),
+  endDate: z.string(),
 });
 
-export type WithdrawFundsBody = z.infer<typeof withdrawFundsSchema>;
+export type GenerateStatementBody = z.infer<typeof generateStatementSchema>;

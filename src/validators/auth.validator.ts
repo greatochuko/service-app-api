@@ -8,7 +8,7 @@ const locationSchema = z.object({
 });
 
 export const signupSchema = z.object({
-  accountType: z.enum(UserRole),
+  userRole: z.enum(UserRole),
   email: z.email("Please enter a valid email"),
   phoneNumber: z.string().optional(),
   fullName: z.string(),

@@ -1,3 +1,4 @@
+import { AuthUserReturnType } from "../controllers/auth.controller";
 import { Job } from "../generated/prisma/client";
 
 /**
@@ -18,4 +19,5 @@ export interface DashboardResponse {
   metadata: {
     pendingRequestsCount: number;
   };
+  user: AuthUserReturnType;
 }

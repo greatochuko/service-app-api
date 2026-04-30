@@ -10,7 +10,12 @@ import {
 import { prisma } from "../config/prisma";
 import { comparePassword, hashPassword } from "../utils/password";
 import { TypedRequest, TypedResponse } from "../types/express";
-import { Location, Service, User } from "../generated/prisma/client";
+import {
+  BankAccount,
+  Location,
+  Service,
+  User,
+} from "../generated/prisma/client";
 import { generateToken } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { Request } from "express";
@@ -21,7 +26,11 @@ import { env } from "../config/env";
 import { logger } from "../utils/logger";
 import { getForgotPasswordOtpEmailTemplate } from "../emails/forgotPasswordEmailTemplate";
 
-type AuthUserReturnType = User & { services: Service[]; locations: Location[] };
+export type AuthUserReturnType = User & {
+  services: Service[];
+  locations: Location[];
+  bankAccounts: BankAccount[];
+};
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -33,7 +42,7 @@ export async function signup(
     user: AuthUserReturnType;
   }>,
 ) {
-  const { accountType, email, fullName, location, password, phoneNumber } =
+  const { userRole, email, fullName, location, password, phoneNumber } =
     req.body;
 
   const userExists = await prisma.user.findFirst({
@@ -54,9 +63,13 @@ export async function signup(
       phoneNumber,
       email,
       locations: { create: location },
-      role: accountType,
+      role: userRole,
     },
-    include: { services: { take: 1 } },
+    include: {
+      services: { take: 1 },
+      locations: { where: { isDefault: true }, select: { address: true } },
+      bankAccounts: { where: { isPrimary: true } },
+    },
   });
 
   const token = generateToken({ id: newUser.id, role: newUser.role });
@@ -83,7 +96,17 @@ export const sendOtp = async (
 ) => {
   const { email } = req.body;
 
-  const rawCode = Math.floor(10000 + Math.random() * 90000).toString();
+  const userExists = await prisma.user.findFirst({
+    where: { email },
+    select: { id: true },
+  });
+  if (userExists)
+    throw new AppError(
+      "This email is already registered. Please log in instead.",
+      409,
+    );
+
+  const rawCode = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedCode = await bcrypt.hash(rawCode, 10);
 
   // 2. Save to DB
@@ -103,7 +126,12 @@ export const sendOtp = async (
     html: getOtpEmailTemplate(rawCode),
   });
 
-  if (!data) throw new AppError(error.message);
+  if (!data) {
+    await prisma.otp.deleteMany({
+      where: { identifier: email, code: hashedCode },
+    });
+    throw new AppError(error.message, 500);
+  }
 
   logger.info("OTP sent successfully");
 
@@ -133,7 +161,7 @@ export const verifyOtp = async (
   const isValid = await bcrypt.compare(code, otpRecord.code);
 
   if (!isValid) {
-    throw new AppError("Incorrect code");
+    throw new AppError("The code you entered is incorrect or expired");
   }
 
   // 3. Mark as used within a transaction
@@ -158,6 +186,7 @@ export async function refreshSession(
     include: {
       services: { take: 1 },
       locations: { where: { isDefault: true }, select: { address: true } },
+      bankAccounts: { where: { isPrimary: true } },
     },
   });
 
@@ -195,6 +224,7 @@ export async function login(
     include: {
       services: { take: 1 },
       locations: { where: { isDefault: true }, select: { address: true } },
+      bankAccounts: { where: { isPrimary: true } },
     },
   });
 
@@ -229,6 +259,7 @@ export async function getSession(
     include: {
       services: { take: 1 },
       locations: { where: { isDefault: true }, select: { address: true } },
+      bankAccounts: { where: { isPrimary: true } },
     },
   });
 
@@ -285,7 +316,7 @@ export const forgotPassword = async (
 
   if (!user) throw new AppError("No account found with this email address.");
 
-  const rawCode = Math.floor(10000 + Math.random() * 90000).toString();
+  const rawCode = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedCode = await bcrypt.hash(rawCode, 10);
 
   // 2. Save to DB

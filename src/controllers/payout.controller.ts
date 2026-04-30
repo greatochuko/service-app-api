@@ -5,18 +5,12 @@ import { AppError } from "../utils/AppError";
 import { Bank, BankAccount, Transaction } from "../generated/prisma/client";
 import {
   SaveBankAccountBody,
-  WithdrawFundsBody,
+  GenerateStatementBody,
 } from "../validators/payout.validator";
 import { prisma } from "../config/prisma";
 import { BankType } from "../types/payout.type";
 import { BankCreateManyInput } from "../generated/prisma/models";
-import {
-  createTransferRecipient,
-  initiatePaystackTransfer,
-  upsertPaystackSubaccount,
-} from "../services/paystack.services";
-import { v4 as uuidv4 } from "uuid";
-import { logger } from "../utils/logger";
+import { upsertPaystackSubaccount } from "../services/paystack.services";
 
 export async function getBanks(req: Request, res: TypedResponse<Bank[]>) {
   try {
@@ -290,92 +284,76 @@ export async function makeDefaultAccount(
   return res.json({ success: true, data: updatedBankAccount });
 }
 
-export async function withdrawFunds(
-  req: TypedRequest<WithdrawFundsBody>,
-  res: TypedResponse<Transaction>,
+export async function generateStatement(
+  req: TypedRequest<GenerateStatementBody>,
+  res: TypedResponse<{
+    transactions: Transaction[];
+    summary: {
+      totalInflow: number;
+      totalOutflow: number;
+    };
+    period: {
+      from: Date;
+      to: Date;
+    };
+  }>, // Changed to any or a custom Statement interface
 ) {
   const userId = req.user?.id as string;
-  const { amountKobo } = req.body;
+  const { startDate, endDate } = req.body;
 
-  // 1. Fetch user data and primary bank
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  // 1. Validate the dates
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      success: false,
+      message: "Start date and end date are required.",
+    });
+  }
+
+  // 2. Query transactions within the range
+  // We use new Date() to ensure the strings from the body are valid Date objects
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: userId,
+      createdAt: {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      },
+    },
     include: {
-      wallet: true,
-      bankAccounts: { where: { isPrimary: true } },
+      job: {
+        select: {
+          title: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 
-  if (!user || !user.wallet)
-    throw new AppError("User or wallet not found", 404);
-  if (user.wallet.balanceKobo < amountKobo)
-    throw new AppError("Insufficient funds");
-  if (user.bankAccounts.length === 0)
-    throw new AppError("No primary bank account set");
+  // 3. Calculate summary (Optional but helpful for statements)
+  const summary = transactions.reduce(
+    (acc, curr) => {
+      if (curr.status === "SUCCESS") {
+        if (curr.type === "CREDIT") acc.totalInflow += curr.amountKobo;
+        if (curr.type === "DEBIT" || curr.type === "WITHDRAWAL")
+          acc.totalOutflow += curr.amountKobo;
+      }
+      return acc;
+    },
+    { totalInflow: 0, totalOutflow: 0 },
+  );
 
-  const bankAccount = user.bankAccounts[0];
-
-  if (!bankAccount) throw new AppError("You have not added a bank account");
-
-  let recipientCode = bankAccount.recipientCode;
-
-  if (!recipientCode) {
-    // 2. Get/Create Recipient Code
-    // Best practice: Store the recipient_code in your BankAccount model in the DB
-    // to avoid calling this API every single time.
-    const { data, error } = await createTransferRecipient({
-      name: user.fullName || "User",
-      accountNumber: bankAccount.accountNumber,
-      bankCode: bankAccount.bankCode,
-    });
-
-    if (!data) {
-      throw new AppError(error || "Unable to initiate withdrawal");
-    }
-
-    recipientCode = data;
-  }
-
-  await prisma.bankAccount.update({
-    where: { id: bankAccount.id },
-    data: { recipientCode },
-  });
-
-  // 3. Initiate Transfer
-  const reference = uuidv4(); // Unique ref to prevent double-spending
-
-  const transferResponse = await initiatePaystackTransfer({
-    amount: amountKobo, // Must be in kobo
-    recipient: recipientCode,
-    reason: `Withdrawal for ${user.fullName}`,
-    reference,
-  });
-
-  if (!transferResponse.data) {
-    logger.error(transferResponse.error);
-    throw new AppError("Payment provider unavailable", 502);
-  }
-
-  // 4. Record and Update Database
-  const transaction = await prisma.$transaction(async (tx) => {
-    const trans = await tx.transaction.create({
-      data: {
-        amountKobo,
-        paystackRef: reference, // Use this for status tracking
-        status: "PENDING", // Transfers take time
-        type: "WITHDRAWAL",
-        userId,
-        note: `To ${bankAccount.bankName} ******${bankAccount.accountNumber.slice(-4)}`,
+  return res.status(200).json({
+    success: true,
+    data: {
+      transactions,
+      summary,
+      period: {
+        from: new Date(startDate),
+        to: new Date(endDate),
       },
-    });
-
-    await tx.wallet.update({
-      where: { userId },
-      data: { balanceKobo: { decrement: amountKobo } },
-    });
-
-    return trans;
+    },
   });
-
-  return res.status(200).json({ success: true, data: transaction });
 }

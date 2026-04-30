@@ -7,12 +7,12 @@ import {
   verifyAccountNumber,
   makeDefaultAccount,
   deleteBankAccount,
-  withdrawFunds,
+  generateStatement,
 } from "../controllers/payout.controller";
 import { validate } from "../middleware/validate";
 import {
   saveBankAccountSchema,
-  withdrawFundsSchema,
+  generateStatementSchema,
 } from "../validators/payout.validator";
 
 const router = Router();
@@ -34,9 +34,9 @@ router.post("/bank-account/:id/make-default", asyncHandler(makeDefaultAccount));
 router.delete("/bank-account/:id", asyncHandler(deleteBankAccount));
 
 router.post(
-  "/withdraw",
-  validate(withdrawFundsSchema),
-  asyncHandler(withdrawFunds),
+  "/statement",
+  validate(generateStatementSchema),
+  asyncHandler(generateStatement),
 );
 
 export default router;
