@@ -10,6 +10,7 @@ import {
   PERCENTAGE_CHARGE,
 } from "../services/paystack.services";
 import { v4 } from "uuid";
+import { logger } from "../utils/logger";
 
 // Define this in your types file
 type EarningsData = {
@@ -155,8 +156,6 @@ export async function withdrawEarnings(
   const fee = Math.ceil((amountKobo * PERCENTAGE_CHARGE) / 100);
   const netAmount = amountKobo - fee;
 
-  console.log({ wallet: user.wallet.balanceKobo, amountKobo, fee, netAmount });
-
   // 1. Check balance BEFORE anything else
   if (user.wallet.balanceKobo < amountKobo) {
     throw new AppError("Insufficient balance", 400);
@@ -197,7 +196,8 @@ export async function withdrawEarnings(
   });
 
   if (!data) {
-    throw new AppError(error || "Failed to initiate transfer.", 500);
+    logger.error(error);
+    throw new AppError("Server Error: Failed to initiate transfer.", 500);
   }
 
   // 4. Only AFTER success → update DB atomically
