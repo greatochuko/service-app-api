@@ -1,7 +1,8 @@
 import { env } from "../config/env";
-import { PERCENTAGE_CHARGE } from "../controllers/paystack.controller";
 
 const PAYSTACK_URL = "https://api.paystack.co";
+
+export const PERCENTAGE_CHARGE = 10;
 
 export const upsertPaystackSubaccount = async (
   body: {

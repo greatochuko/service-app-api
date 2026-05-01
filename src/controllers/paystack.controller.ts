@@ -1,12 +1,15 @@
-import { Request, Response } from "express";
+import { Request } from "express";
 import { prisma } from "../config/prisma";
 import { logger } from "../utils/logger";
 import { env } from "../config/env";
 import { sendNotification } from "../services/notification.services";
+import { TypedResponse } from "../types/express";
+import { addBusinessDays } from "date-fns";
 
-export const PERCENTAGE_CHARGE = 10;
-
-export async function paymentCallback(req: Request, res: Response) {
+export async function paymentCallback(
+  req: Request,
+  res: TypedResponse<string>,
+) {
   try {
     const { jobId, reference } = req.query as {
       jobId: string;
@@ -16,7 +19,7 @@ export async function paymentCallback(req: Request, res: Response) {
     if (!jobId || !reference) {
       return res
         .status(400)
-        .json({ error: "Missing required query parameters" });
+        .json({ success: false, message: "Missing required query parameters" });
     }
 
     const job = await prisma.job.findUnique({
@@ -32,13 +35,14 @@ export async function paymentCallback(req: Request, res: Response) {
       },
     });
 
-    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (!job)
+      return res.status(404).json({ success: false, message: "Job not found" });
 
     // 1. Idempotency Check
     if (job.paymentStatus === "SUCCESS") {
       return res
         .status(200)
-        .json({ success: true, message: "Payment already verified" });
+        .json({ success: true, data: "Payment already verified" });
     }
 
     // 2. Verify with Paystack
@@ -67,18 +71,18 @@ export async function paymentCallback(req: Request, res: Response) {
         });
 
         // B. Create Transaction Record
-        const ARTISAN_FACTOR = 1 - PERCENTAGE_CHARGE / 100;
-        const calculatedAmount = data.amount * ARTISAN_FACTOR;
 
         await tx.transaction.create({
           data: {
             userId: providerId,
             paystackRef: data.reference,
-            amountKobo: calculatedAmount, // Paystack amount is in kobo
+            amountKobo: data.amount, // Paystack amount is in kobo
             type: "CREDIT",
             status: "SUCCESS",
             note: `${job.title} - ${job.customer.fullName}`,
             jobId,
+            releaseAt: addBusinessDays(new Date(), 1),
+            isReleased: false,
           },
         });
 
@@ -86,7 +90,7 @@ export async function paymentCallback(req: Request, res: Response) {
         await tx.wallet.update({
           where: { userId: providerId },
           data: {
-            balanceKobo: { increment: calculatedAmount },
+            pendingBalanceKobo: { increment: data.amount },
           },
         });
       });
@@ -115,12 +119,16 @@ export async function paymentCallback(req: Request, res: Response) {
 
       return res
         .status(200)
-        .json({ success: true, message: "Payment verified successfully" });
+        .json({ success: true, data: "Payment verified successfully" });
     }
 
-    return res.status(400).json({ error: "Payment verification failed" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Payment verification failed" });
   } catch (error) {
     logger.error(`Payment callback error: ${(error as Error).message}`);
-    return res.status(500).json({ error: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 }

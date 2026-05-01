@@ -100,11 +100,18 @@ export const sendOtp = async (
     where: { email },
     select: { id: true },
   });
-  if (userExists)
+
+  if (userExists) {
     throw new AppError(
       "This email is already registered. Please log in instead.",
       409,
     );
+  }
+
+  if (env.NODE_ENV === "development") {
+    logger.info(`Development mode: OTP for ${email} is 123456`);
+    return res.json({ success: true, data: true });
+  }
 
   const rawCode = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedCode = await bcrypt.hash(rawCode, 10);
@@ -143,6 +150,11 @@ export const verifyOtp = async (
   res: TypedResponse<boolean>,
 ) => {
   const { email, code } = req.body;
+
+  if (env.NODE_ENV === "development") {
+    logger.info(`Development mode: OTP for ${email} is 123456`);
+    return res.json({ success: true, data: true });
+  }
 
   const otpRecord = await prisma.otp.findFirst({
     where: {
@@ -315,6 +327,11 @@ export const forgotPassword = async (
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) throw new AppError("No account found with this email address.");
+
+  if (env.NODE_ENV === "development") {
+    logger.info(`Development mode: Forgot password OTP for ${email} is 123456`);
+    return res.json({ success: true, data: true });
+  }
 
   const rawCode = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedCode = await bcrypt.hash(rawCode, 10);

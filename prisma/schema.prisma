@@ -354,6 +354,7 @@ model Message {
 model Wallet {
   id                     String   @id @default(uuid())
   balanceKobo            Int      @default(0)
+  pendingBalanceKobo     Int      @default(0)
   paystackSubaccountCode String
   userId                 String   @unique
   user                   User     @relation(fields: [userId], references: [id])
@@ -373,6 +374,9 @@ model Transaction {
   type        TransactionType // Enum: CREDIT, DEBIT, WITHDRAWAL
   status      TransactionStatus // Enum: PENDING, SUCCESS, FAILED
 
+  isReleased Boolean  @default(false)
+  releaseAt  DateTime
+
   jobId String? @unique
   job   Job?    @relation(fields: [jobId], references: [id])
 
@@ -389,6 +393,7 @@ enum TransactionType {
 enum TransactionStatus {
   PENDING
   SUCCESS
+  REVERSED
   FAILED
 }
 

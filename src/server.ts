@@ -1,5 +1,6 @@
 import { app, httpServer, io } from "./app";
 import { env } from "./config/env";
+import { initCronJobs } from "./services/cron.services";
 import { logger } from "./utils/logger";
 
 app.get("/", (_, res): void => {
@@ -70,5 +71,7 @@ io.on("connection", (socket) => {
 
 // 3. CRITICAL: Change app.listen to httpServer.listen
 httpServer.listen(env.PORT, () => {
+  initCronJobs();
+
   logger.info(`Server running on port ${env.PORT}`);
 });

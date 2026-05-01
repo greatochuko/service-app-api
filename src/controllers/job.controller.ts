@@ -347,12 +347,6 @@ export async function generatePaystackReference(
   });
 
   if (!user || !job) throw new AppError("Not found", 404);
-  if (!job.service?.provider.wallet) {
-    throw new AppError(
-      "The artisan has no bank accounts connected. Please contact the artisan.",
-      400,
-    );
-  }
   if (job.customerId !== authUserId) throw new AppError("Unauthorized", 403);
   if (job.status !== "COMPLETED")
     throw new AppError("Job must be completed", 400);
@@ -384,7 +378,7 @@ export async function generatePaystackReference(
         email: user.email,
         amount: job.priceKobo,
         callback_url: callbackUrl,
-        subaccount: job.service.provider.wallet.paystackSubaccountCode,
+        // subaccount: job.service.provider.wallet.paystackSubaccountCode,
       }),
     },
   );
