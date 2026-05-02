@@ -205,7 +205,7 @@ export async function sendQuote(
       },
     });
 
-    const messageText = `📝 Quote Sent: $${price}${note ? `\nNote: ${note}` : ""}`;
+    const messageText = `📝 Quote Sent: ₦${price}${note ? `\nNote: ${note}` : ""}`;
 
     const newMsg = await tx.message.create({
       data: {
