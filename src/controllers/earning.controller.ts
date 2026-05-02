@@ -126,8 +126,8 @@ export async function withdrawEarnings(
 ) {
   const { amountKobo } = req.body;
 
-  if (amountKobo < 100000) {
-    throw new AppError("Minimum withdrawal amount is 1000 Naira", 400);
+  if (amountKobo < 10000) {
+    throw new AppError("Minimum withdrawal amount is 100 Naira", 400);
   }
 
   const user = await prisma.user.findUnique({
