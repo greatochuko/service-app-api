@@ -7,14 +7,11 @@ import {
   cancelJob,
   generatePaystackReference,
   verifyPaymentStatus,
-  getJobReceipt,
 } from "../controllers/job.controller";
 
 const router = Router();
 
 router.get("/", asyncHandler(getJobs));
-
-router.get("/:id/receipt", asyncHandler(getJobReceipt));
 
 router.post("/:id/start", asyncHandler(startJob));
 

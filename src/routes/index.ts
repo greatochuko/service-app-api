@@ -12,6 +12,7 @@ import addressRoutes from "./address.routes";
 import paystackRoutes from "./paystack.routes";
 import webhookRoutes from "./webhook.routes";
 import earningRoutes from "./earning.routes";
+import transactionRoutes from "./transaction.routes";
 import { authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -43,5 +44,7 @@ router.use("/chat", chatRoutes);
 router.use("/address", addressRoutes);
 
 router.use("/earnings", earningRoutes);
+
+router.use("/transactions", transactionRoutes);
 
 export default router;
