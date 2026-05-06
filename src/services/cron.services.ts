@@ -64,6 +64,7 @@ async function startWalletReleaseCron() {
         await tx.transaction.update({
           where: { id: t.id },
           data: {
+            status: "SUCCESS",
             isReleased: true,
           },
         });

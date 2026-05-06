@@ -355,6 +355,15 @@ export async function generatePaystackReference(
     throw new AppError("This job has already been paid for", 400);
   }
 
+  const jobProviderWallet = job.service?.provider.wallet;
+
+  if (!jobProviderWallet || !jobProviderWallet.paystackSubaccountCode) {
+    throw new AppError(
+      "Provider does not have a valid payout account. Cannot process payment.",
+      400,
+    );
+  }
+
   // 2. Initialize Transaction with Paystack
   // 1. Construct the base URL
   const baseUrl = new URL(req.url, `${req.protocol}://${req.get("host")}`)
@@ -378,7 +387,7 @@ export async function generatePaystackReference(
         email: user.email,
         amount: job.priceKobo,
         callback_url: callbackUrl,
-        // subaccount: job.service.provider.wallet.paystackSubaccountCode,
+        subaccount: jobProviderWallet.paystackSubaccountCode,
       }),
     },
   );

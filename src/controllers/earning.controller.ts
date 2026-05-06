@@ -16,7 +16,7 @@ import { logger } from "../utils/logger";
 type EarningsData = {
   history: Transaction[];
   summary: {
-    availableBalance: number;
+    totalRevenue: number;
     thisMonthEarnings: number;
     pendingRelease: number;
     totalJobs: number;
@@ -74,7 +74,7 @@ export async function getEarnings(
           userId: user.id,
           isReleased: false,
           type: "CREDIT",
-          status: "SUCCESS",
+          status: "PENDING",
         },
         _sum: {
           amountKobo: true,
@@ -87,7 +87,7 @@ export async function getEarnings(
     data: {
       history,
       summary: {
-        availableBalance: user.wallet?.balanceKobo || 0,
+        totalRevenue: user.wallet?.balanceKobo || 0,
         thisMonthEarnings: monthlyEarnings._sum.amountKobo || 0,
         pendingRelease: pendingRelease._sum.amountKobo || 0,
         totalJobs,

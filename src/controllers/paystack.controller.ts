@@ -78,7 +78,7 @@ export async function paymentCallback(
             paystackRef: data.reference,
             amountKobo: data.amount, // Paystack amount is in kobo
             type: "CREDIT",
-            status: "SUCCESS",
+            status: "PENDING",
             note: `${job.title} - ${job.customer.fullName}`,
             jobId,
             releaseAt: addBusinessDays(new Date(), 1),
